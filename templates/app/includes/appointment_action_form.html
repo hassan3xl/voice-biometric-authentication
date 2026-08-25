@@ -1,0 +1,92 @@
+<div style="display: inline-flex; gap: 8px;">
+    <!-- Accept Button -> Triggers Accept Modal -->
+    <button type="button" onclick="document.getElementById('acceptModal-{{ appointment.pk }}').style.display='flex'" style="background: #10b981; color: #ffffff; padding: 6px 14px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+        Accept
+    </button>
+
+    <!-- Reject Button -> Triggers Reject Modal -->
+    <button type="button" onclick="document.getElementById('rejectModal-{{ appointment.pk }}').style.display='flex'" style="background: #ef4444; color: #ffffff; padding: 6px 14px; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Reject
+    </button>
+</div>
+
+<!-- Accept Modal -->
+<div id="acceptModal-{{ appointment.pk }}" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 16px;">
+    <div style="background: #ffffff; border-radius: 14px; max-width: 520px; width: 100%; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>
+                Confirm Appointment
+            </h3>
+            <button type="button" onclick="document.getElementById('acceptModal-{{ appointment.pk }}').style.display='none'" style="background: transparent; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 0;">&times;</button>
+        </div>
+
+        <!-- Locked Day Banner -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: #475569; letter-spacing: 0.05em;">Patient Requested Date:</span>
+                <span style="background: #e2e8f0; color: #334155; font-weight: 600; font-size: 11px; padding: 2px 8px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                    🔒 Day Locked
+                </span>
+            </div>
+            <div style="font-size: 16px; font-weight: 800; color: #0f172a;">
+                📅 {{ appointment.requested_date|date:"l, F j, Y g:i A" }}
+            </div>
+            <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                Patient: <strong>{{ appointment.patient.get_full_name|default:appointment.patient.email }}</strong>
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'app:respond_appointment' appointment.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="accept">
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; margin-bottom: 20px; font-size: 12.5px; color: #166534; line-height: 1.4;">
+                ✅ This slot was already selected by the patient. Accepting here will confirm the appointment without changing the time.
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="document.getElementById('acceptModal-{{ appointment.pk }}').style.display='none'" style="padding: 9px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 9px 20px; background: #10b981; color: #ffffff; border: none; border-radius: 8px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>
+                    Confirm &amp; Accept
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal-{{ appointment.pk }}" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center; padding: 16px;">
+    <div style="background: #ffffff; border-radius: 14px; max-width: 480px; width: 100%; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #991b1b; margin: 0; display: flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Reject Appointment Request
+            </h3>
+            <button type="button" onclick="document.getElementById('rejectModal-{{ appointment.pk }}').style.display='none'" style="background: transparent; border: none; font-size: 20px; color: #64748b; cursor: pointer; padding: 0;">&times;</button>
+        </div>
+
+        <p style="font-size: 14px; color: #475569; margin-bottom: 14px; line-height: 1.5;">
+            Rejecting request for <strong>{{ appointment.requested_date|date:"l, F j, Y" }}</strong> from <strong>{{ appointment.patient.get_full_name|default:appointment.patient.email }}</strong>. Provide a reason so the patient can rebook.
+        </p>
+
+        <form method="post" action="{% url 'app:respond_appointment' appointment.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="reject">
+
+            <div style="margin-bottom: 16px;">
+                <label for="rejection_reason-{{ appointment.pk }}" style="display: block; font-weight: 600; font-size: 13px; color: #334155; margin-bottom: 6px;">
+                    Reason for Rejection:
+                </label>
+                <textarea id="rejection_reason-{{ appointment.pk }}" name="rejection_reason" rows="3" required placeholder="State why this date/request cannot be accepted (e.g., fully booked on this date, off duty, etc.)..." style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 14px; background: #ffffff;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button type="button" onclick="document.getElementById('rejectModal-{{ appointment.pk }}').style.display='none'" style="padding: 9px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;">Cancel</button>
+                <button type="submit" style="padding: 9px 18px; background: #ef4444; color: #ffffff; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer;">Submit Rejection</button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage Beneficiaries & Wire Recipients | Apex Bank{% endblock %}
+
+{% block content %}
+<div class="space-y-8 py-4 max-w-5xl mx-auto">
+  
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel p-6 bg-gradient-to-r from-[#0c1424] to-[#080d18] border-emerald-500/30">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Saved Beneficiaries & Recipients</h1>
+      <p class="text-xs text-slate-400">Manage trusted accounts for 1-click wire transfers with Voice Biometric protection</p>
+    </div>
+    <span class="badge badge-success font-mono text-xs">{{ beneficiaries.count }} Verified Recipients</span>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- LEFT 2 COLUMNS: Beneficiaries List -->
+    <div class="lg:col-span-2 space-y-4">
+      <h3 class="text-base font-bold text-white flex items-center gap-2">
+        <i class="fa-solid fa-address-book text-emerald-400"></i> Verified Beneficiary Directory
+      </h3>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {% for b in beneficiaries %}
+        <div class="glass-panel p-5 space-y-3 relative group hover:border-emerald-500/40 transition-all">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                {{ b.name|slice:":1" }}
+              </div>
+              <div>
+                <p class="font-bold text-slate-200 text-sm">{{ b.name }}</p>
+                <p class="text-[11px] text-slate-400 font-mono">#{{ b.account_number }}</p>
+              </div>
+            </div>
+            <span class="badge badge-success text-[9px]"><i class="fa-solid fa-circle-check"></i> Verified</span>
+          </div>
+
+          <div class="text-xs text-slate-400 font-mono space-y-0.5 border-t border-white/5 pt-2">
+            <p><span class="text-slate-500">Bank:</span> {{ b.bank_name }}</p>
+            <p><span class="text-slate-500">Routing:</span> {{ b.routing_number }}</p>
+            {% if b.email %}
+            <p><span class="text-slate-500">Email:</span> {{ b.email }}</p>
+            {% endif %}
+          </div>
+
+          <div class="pt-2">
+            <a href="{% url 'app:transfer' %}?beneficiary_id={{ b.id }}" class="btn-primary w-full py-2 text-xs">
+              <i class="fa-solid fa-paper-plane"></i> Send Funds
+            </a>
+          </div>
+        </div>
+        {% empty %}
+        <div class="col-span-2 glass-panel p-8 text-center text-slate-400 text-xs">
+          <i class="fa-solid fa-user-plus text-3xl mb-2 text-slate-500"></i>
+          <p>No beneficiaries added yet. Use the form on the right to add your first recipient.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Add Beneficiary Form -->
+    <div>
+      <div class="glass-panel-glow p-6 space-y-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-user-plus text-emerald-400"></i> Add New Beneficiary
+        </h3>
+
+        <form method="POST" action="{% url 'app:beneficiaries' %}" class="space-y-3.5 text-xs">
+          {% csrf_token %}
+          
+          <div>
+            <label class="form-label" for="bene-name">Recipient Full Name</label>
+            <input type="text" name="name" id="bene-name" class="form-input" placeholder="Elena Rostova" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="bene-acc">Account Number / IBAN</label>
+            <input type="text" name="account_number" id="bene-acc" class="form-input" placeholder="4077123984" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="bene-bank">Receiving Bank Name</label>
+            <input type="text" name="bank_name" id="bene-bank" class="form-input" value="Apex Federal Bank" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="bene-routing">Routing Transit Number</label>
+            <input type="text" name="routing_number" id="bene-routing" class="form-input" value="021000021" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="bene-email">Notification Email (Optional)</label>
+            <input type="email" name="email" id="bene-email" class="form-input" placeholder="elena@example.com">
+          </div>
+
+          <button type="submit" class="btn-primary w-full py-2.5 text-xs mt-2">
+            <i class="fa-solid fa-shield-check"></i> Save & Verify Beneficiary
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

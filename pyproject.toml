@@ -1,0 +1,33 @@
+[project]
+name = "voice-biometric-auth"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.0.7",
+    "pillow>=12.3.0",
+    "requests>=2.34.2",
+    "whitenoise>=6.5.0",
+    "cloudinary>=1.32.0",
+    # pin to latest available 0.3.x release (0.4.0 not available in current indexes)
+    "django-cloudinary-storage<=0.3.0",
+    "python-dotenv>=1.0.0",
+    "dj-database-url>=1.0.0",
+    "psycopg[binary]>=3.3.4",
+    "gunicorn>=26.0.0",
+    "torch>=2.0.0",
+    "scipy>=1.10.0",
+    "soundfile>=0.12.0",
+    "webrtcvad>=2.0.10",
+    "setuptools>=84.0.0",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+    

@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+
+{% block title %}Login | voice biometri{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-4xl space-y-8">
+  <section class="rounded-3xl border border-slate-200 bg-white p-8 shadow-soft text-center">
+    <div class="mx-auto inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+      <i class="fa-solid fa-shield-halved"></i> voice biometri login portal
+    </div>
+    <h1 class="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Sign in to voice biometri</h1>
+    <p class="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+      Enroll your unique voice characteristics or sign in using your account credentials to test and demonstrate voice biometric authentication.
+    </p>
+  </section>
+
+  <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft">
+    <div class="grid border-b border-slate-200 bg-slate-50 sm:grid-cols-2">
+      <button id="tab-password" onclick="switchAuthTab('password')" class="border-b-2 border-emerald-600 px-6 py-4 text-sm font-semibold text-slate-900">Password Login</button>
+      <button id="tab-voice" onclick="switchAuthTab('voice')" class="border-b-2 border-transparent px-6 py-4 text-sm font-semibold text-slate-500 hover:text-slate-900">Voice Login</button>
+    </div>
+
+    <div class="grid gap-8 p-6 sm:p-8">
+      <div id="content-password" class="block">
+        <form method="POST" action="{% url 'app:login' %}" class="space-y-5">
+          {% csrf_token %}
+          {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+          <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700" for="login-identifier">Email or account number</label>
+            <input type="text" name="username_or_email" id="login-identifier" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100" placeholder="Enter your email or account number" required>
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-medium text-slate-700" for="login-password">Password</label>
+            <input type="password" name="password" id="login-password" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-4 focus:ring-emerald-100" placeholder="••••••••••" required>
+          </div>
+          <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-700">
+            <i class="fa-solid fa-right-to-bracket"></i> Sign in
+          </button>
+        </form>
+      </div>
+
+      <div id="content-voice" class="hidden space-y-5">
+        <div class="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+          <div class="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <span>Dynamic challenge phrase</span>
+            <button type="button" onclick="refreshVoiceChallenge()" class="text-emerald-600 hover:text-emerald-700">Refresh</button>
+          </div>
+          <p id="challenge-display" class="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm text-slate-900">"{{ initial_challenge }}"</p>
+        </div>
+
+        <div class="space-y-3">
+          <canvas id="login-visualizer" class="h-24 w-full rounded-2xl border border-slate-200 bg-white" width="500" height="90"></canvas>
+          <div class="h-2 overflow-hidden rounded-full bg-slate-200">
+            <div id="login-vu" class="h-full w-0 bg-emerald-500 transition-all"></div>
+          </div>
+        </div>
+
+        <div class="text-center">
+          <button type="button" id="voice-record-btn" onclick="toggleVoiceLoginRecording()" class="inline-flex h-20 w-20 items-center justify-center rounded-full bg-slate-900 text-white shadow-soft transition hover:scale-105">
+            <i id="voice-record-icon" class="fa-solid fa-microphone text-2xl"></i>
+          </button>
+          <p id="voice-status-text" class="mt-3 text-sm font-medium text-slate-600">Click to speak the challenge phrase</p>
+        </div>
+
+        <div id="voice-feedback" class="hidden rounded-2xl border p-4 text-sm"></div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const voiceRecorder = new ApexVoiceRecorder();
+  let isVoiceRecording = false;
+  const nextUrl = "{{ next_url|default:''|escapejs }}";
+
+  function switchAuthTab(tab) {
+    const tabPwd = document.getElementById('tab-password');
+    const tabVce = document.getElementById('tab-voice');
+    const cntPwd = document.getElementById('content-password');
+    const cntVce = document.getElementById('content-voice');
+
+    if (tab === 'password') {
+      tabPwd.className = 'border-b-2 border-emerald-600 px-6 py-4 text-sm font-semibold text-slate-900';
+      tabVce.className = 'border-b-2 border-transparent px-6 py-4 text-sm font-semibold text-slate-500 hover:text-slate-900';
+      cntPwd.classList.remove('hidden');
+      cntVce.classList.add('hidden');
+    } else {
+      tabPwd.className = 'border-b-2 border-transparent px-6 py-4 text-sm font-semibold text-slate-500 hover:text-slate-900';
+      tabVce.className = 'border-b-2 border-emerald-600 px-6 py-4 text-sm font-semibold text-slate-900';
+      cntPwd.classList.add('hidden');
+      cntVce.classList.remove('hidden');
+    }
+  }
+
+
+  async function refreshVoiceChallenge() {
+    try {
+      const res = await fetch("{% url 'app:api_voice_challenge' %}");
+      const data = await res.json();
+      if (data.status === 'success') {
+        document.getElementById('challenge-display').innerText = `"${data.challenge_phrase}"`;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function toggleVoiceLoginRecording() {
+    const btn = document.getElementById('voice-record-btn');
+    const icon = document.getElementById('voice-record-icon');
+    const statusText = document.getElementById('voice-status-text');
+    const canvas = document.getElementById('login-visualizer');
+    const vu = document.getElementById('login-vu');
+    const feedback = document.getElementById('voice-feedback');
+
+    if (!isVoiceRecording) {
+      try {
+        await voiceRecorder.startRecording(canvas, vu);
+        isVoiceRecording = true;
+        btn.classList.add('scale-105');
+        icon.className = 'fa-solid fa-stop text-2xl';
+        statusText.textContent = 'Recording... speak now';
+        feedback.classList.add('hidden');
+      } catch (error) {
+        alert(error.message || 'Failed to access microphone.');
+      }
+      return;
+    }
+
+    isVoiceRecording = false;
+    btn.classList.remove('scale-105');
+    icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
+    statusText.textContent = 'Verifying voice...';
+
+    const audioResult = await voiceRecorder.stopRecording();
+    if (!audioResult) {
+      icon.className = 'fa-solid fa-microphone text-2xl';
+      statusText.textContent = 'Recording failed. Try again.';
+      return;
+    }
+
+    const rawChallenge = document.getElementById('challenge-display').innerText.replace(/^"|"$/g, '');
+    const formData = new FormData();
+    formData.append('audio_data', audioResult.base64Wav);
+    formData.append('challenge_phrase', rawChallenge);
+    formData.append('spoken_transcript', audioResult.transcript);
+
+    try {
+      const response = await fetch("{% url 'app:api_voice_login' %}", {
+        method: 'POST',
+        body: formData,
+      });
+      const resData = await response.json();
+      icon.className = 'fa-solid fa-microphone text-2xl';
+
+      if (response.ok && resData.status === 'success') {
+        statusText.textContent = 'Voice verified. Redirecting...';
+        feedback.className = 'rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800';
+        feedback.innerHTML = `<div class="font-semibold">Access granted</div><div class="mt-1 text-sm">Confidence: ${resData.metrics.confidence_pct}% · Latency: ${resData.metrics.latency_ms} ms</div>`;
+        feedback.classList.remove('hidden');
+        setTimeout(() => {
+          window.location.href = nextUrl || resData.redirect_url || '/dashboard/';
+        }, 1000);
+      } else {
+        statusText.textContent = 'Authentication denied';
+        feedback.className = 'rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800';
+        feedback.innerHTML = `<div class="font-semibold">${resData.decision || 'REJECTED'}</div><div class="mt-1 text-sm">${resData.message}</div>`;
+        feedback.classList.remove('hidden');
+      }
+    } catch (error) {
+      icon.className = 'fa-solid fa-microphone text-2xl';
+      statusText.textContent = 'Network error during verification.';
+    }
+  }
+</script>
+{% endblock %}

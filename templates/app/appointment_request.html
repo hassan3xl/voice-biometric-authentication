@@ -1,0 +1,236 @@
+{% extends 'app/base_patient.html' %}
+{% block title %}Request Appointment{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+
+{% block patient_content %}
+<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); max-width: 720px; margin: 0 auto;">
+    <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; overflow: hidden; background: #e0f2fe; display: grid; place-items: center; border: 2px solid #0ea5e9; flex-shrink: 0;">
+            {% if doctor.doctor_profile.profile_picture %}
+                <img src="{{ doctor.doctor_profile.profile_picture.url }}" alt="Dr. {{ doctor.get_full_name }}" style="width: 100%; height: 100%; object-fit: cover;">
+            {% else %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" width="28" height="28">
+                    <path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z"/>
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                </svg>
+            {% endif %}
+        </div>
+        <div>
+            <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0;">Request Appointment with Dr. {{ doctor.get_full_name|default:doctor.email }}</h1>
+            <span style="display: inline-block; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 9999px; margin-top: 4px;">
+                {{ doctor.doctor_profile.get_specialty_display }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Doctor Working Hours Notice -->
+    <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 16px; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #0369a1; font-size: 14px; margin-bottom: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Doctor Available Working Hours:</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+            {% with wh_list=doctor.get_working_hours_list %}
+                {% if wh_list %}
+                    {% for wh in wh_list %}
+                        <span style="background: #ffffff; color: #0369a1; border: 1px solid #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                            {{ wh.get_day_display }}: {{ wh.start_time|time:"g:i A" }} – {{ wh.end_time|time:"g:i A" }}
+                        </span>
+                    {% endfor %}
+                {% else %}
+                    <span style="background: #ffffff; color: #0369a1; border: 1px solid #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                        Monday – Friday: 9:00 AM – 5:00 PM
+                    </span>
+                {% endif %}
+            {% endwith %}
+        </div>
+        <p style="margin: 0; font-size: 12.5px; color: #0c4a6e; line-height: 1.4;">
+            💡 <strong>Note:</strong> Choose an open date and one of the available time slots below. Booked slots are disabled automatically.
+        </p>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="form-row" style="margin-bottom: 16px;">
+            <label for="{{ form.requested_date.id_for_label }}" style="display: block; font-weight: 600; font-size: 14px; color: #334155; margin-bottom: 6px;">
+                {{ form.requested_date.label }}
+            </label>
+            {{ form.requested_date }}
+            <small style="color: #64748b; font-size: 12px; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Select a date first, then choose an open time slot.
+            </small>
+            {% if form.requested_date.errors %}
+                <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ form.requested_date.errors }}</div>
+            {% endif %}
+        </div>
+
+        {{ form.requested_time }}
+
+        <div class="form-row" style="margin-bottom: 16px;">
+            <label style="display: block; font-weight: 600; font-size: 14px; color: #334155; margin-bottom: 6px;">
+                Available Time Slots
+            </label>
+            <div id="selected-slot-banner" style="display: none; background: #ecfeff; border: 1px solid #a5f3fc; color: #155e75; border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 600; margin-bottom: 10px;"></div>
+            <div id="time-slots-empty" style="display: none; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 8px; padding: 12px; font-size: 13px;">
+                No available slots for this date. Please choose another day.
+            </div>
+            <div id="time-slots-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;"></div>
+            {% if form.requested_time.errors %}
+                <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ form.requested_time.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-row" style="margin-bottom: 16px;">
+            <label for="{{ form.specialty.id_for_label }}" style="display: block; font-weight: 600; font-size: 14px; color: #334155; margin-bottom: 6px;">
+                {{ form.specialty.label }}
+            </label>
+            {{ form.specialty }}
+            {% if form.specialty.help_text %}
+                <small style="color: #64748b; font-size: 12px; margin-top: 4px; display: block;">🔒 {{ form.specialty.help_text }}</small>
+            {% endif %}
+            {% if form.specialty.errors %}
+                <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ form.specialty.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-row" style="margin-bottom: 16px;">
+            <label for="{{ form.reason.id_for_label }}" style="display: block; font-weight: 600; font-size: 14px; color: #334155; margin-bottom: 6px;">
+                {{ form.reason.label }}
+            </label>
+            {{ form.reason }}
+            {% if form.reason.errors %}
+                <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ form.reason.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-row" style="margin-bottom: 16px;">
+            <label for="{{ form.notes.id_for_label }}" style="display: block; font-weight: 600; font-size: 14px; color: #334155; margin-bottom: 6px;">
+                {{ form.notes.label }}
+            </label>
+            {{ form.notes }}
+            {% if form.notes.errors %}
+                <div style="color: #dc2626; font-size: 12px; margin-top: 4px;">{{ form.notes.errors }}</div>
+            {% endif %}
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+            <a href="{% url 'app:doctor_list' %}" style="padding: 10px 18px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">Cancel</a>
+            <button type="submit" style="padding: 10px 24px; background: #059669; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Submit Booking Request
+            </button>
+        </div>
+    </form>
+</div>
+
+{{ schedule_json|json_script:"doctor-schedule-data" }}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var dateInput = document.getElementById('id_requested_date') || document.querySelector('input[name="requested_date"]');
+        var timeInput = document.getElementById('id_requested_time');
+        var scheduleElement = document.getElementById('doctor-schedule-data');
+        var scheduleData = scheduleElement ? JSON.parse(scheduleElement.textContent) : {};
+        var slotsGrid = document.getElementById('time-slots-grid');
+        var emptyState = document.getElementById('time-slots-empty');
+        var selectedBanner = document.getElementById('selected-slot-banner');
+
+        function renderSlots(selectedDate) {
+            if (!slotsGrid) {
+                return;
+            }
+
+            slotsGrid.innerHTML = '';
+            var slots = scheduleData[selectedDate] || [];
+            var activeCount = 0;
+            var currentSelected = timeInput ? timeInput.value : '';
+
+            if (emptyState) {
+                emptyState.style.display = slots.length ? 'none' : 'block';
+            }
+
+            slots.forEach(function(slot) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = slot.label;
+                button.style.padding = '10px 8px';
+                button.style.borderRadius = '8px';
+                button.style.fontWeight = '700';
+                button.style.fontSize = '13px';
+                button.style.border = '1px solid #cbd5e1';
+                button.style.cursor = slot.available ? 'pointer' : 'not-allowed';
+                button.style.transition = 'all 0.15s ease';
+
+                if (!slot.available) {
+                    button.disabled = true;
+                    button.style.background = '#f8fafc';
+                    button.style.color = '#94a3b8';
+                    button.style.textDecoration = 'line-through';
+                } else {
+                    activeCount += 1;
+                    button.dataset.value = slot.value;
+                    button.dataset.label = slot.label;
+                    var isSelected = currentSelected === slot.value;
+                    button.style.background = isSelected ? '#059669' : '#ffffff';
+                    button.style.color = isSelected ? '#ffffff' : '#0f172a';
+                    button.style.borderColor = isSelected ? '#059669' : '#cbd5e1';
+                    button.addEventListener('click', function() {
+                        if (timeInput) {
+                            timeInput.value = slot.value;
+                        }
+                        if (selectedBanner) {
+                            selectedBanner.style.display = 'block';
+                            selectedBanner.textContent = 'Selected slot: ' + slot.label;
+                        }
+                        renderSlots(selectedDate);
+                    });
+                }
+
+                slotsGrid.appendChild(button);
+            });
+
+            if (selectedBanner) {
+                if (currentSelected) {
+                    selectedBanner.style.display = 'block';
+                    selectedBanner.textContent = 'Selected slot: ' + currentSelected;
+                } else if (activeCount) {
+                    selectedBanner.style.display = 'block';
+                    selectedBanner.textContent = 'Choose one of the open slots below.';
+                } else {
+                    selectedBanner.style.display = 'none';
+                }
+            }
+        }
+
+        if (dateInput) {
+            flatpickr(dateInput, {
+                enableTime: false,
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                allowInput: true,
+                onChange: function(selectedDates, dateStr) {
+                    renderSlots(dateStr);
+                    if (timeInput) {
+                        timeInput.value = '';
+                    }
+                }
+            });
+
+            var initialDate = dateInput.value || '';
+            if (initialDate) {
+                renderSlots(initialDate);
+            }
+        }
+
+        if (timeInput && timeInput.value && selectedBanner) {
+            selectedBanner.style.display = 'block';
+            selectedBanner.textContent = 'Selected slot: ' + timeInput.value;
+        }
+    });
+</script>
+{% endblock %}

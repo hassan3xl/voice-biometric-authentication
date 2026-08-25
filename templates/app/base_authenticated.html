@@ -1,0 +1,26 @@
+{% extends 'app/base.html' %}
+
+{% block authenticated_extra_css %}{% endblock %}
+
+{% block main_content %}
+{% if user.is_authenticated %}
+<div class="flex flex-col md:flex-row min-h-[calc(100vh-4rem)] bg-slate-50 w-full">
+    <!-- Left Sidebar stays flush on the left side -->
+    {% include 'app/includes/sidebar.html' %}
+
+    <!-- Main Content Area fills remaining width -->
+    <main class="content flex-1 p-6 md:p-8 min-w-0 bg-slate-50 w-full">
+        {% block authenticated_content %}{% block patient_content %}{% block doctor_content %}{% endblock %}{% endblock %}{% endblock %}
+    </main>
+
+    <!-- Post-Appointment Feedback Check-In Modal for Patients -->
+    {% include 'app/includes/feedback_modal.html' %}
+</div>
+{% else %}
+    <main class="content p-6 md:p-8 max-w-5xl mx-auto w-full">
+        <div class="card bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
+            {% block unauthenticated_content %}{% endblock %}
+        </div>
+    </main>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends 'app/base_authenticated.html' %}
+{% block title %}Profile{% endblock %}
+
+{% block authenticated_content %}
+<div class="card" style="max-width: 680px; margin: 0 auto;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px;">
+        <div>
+            <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #0f172a;">User Profile</h1>
+            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13.5px;">Manage your account details and profile picture</p>
+        </div>
+        <span style="background: #f1f5f9; color: #475569; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase;">
+            {{ user.get_role_display|default:user.role }}
+        </span>
+    </div>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Profile Picture Avatar Section -->
+        <div style="display: flex; align-items: center; gap: 24px; margin-bottom: 32px; background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0;">
+            <div style="position: relative; width: 96px; height: 96px; flex-shrink: 0;">
+                {% if user.get_avatar_url %}
+                    <img id="avatar-preview" src="{{ user.get_avatar_url }}" alt="Profile Picture" style="width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 3px solid #2563eb; box-shadow: 0 4px 10px rgba(37,99,235,0.2);" />
+                {% else %}
+                    <div id="avatar-preview-placeholder" style="width: 96px; height: 96px; border-radius: 50%; background: #e2e8f0; border: 3px solid #cbd5e1; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="44" height="44">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <img id="avatar-preview" src="" alt="Profile Picture" style="display: none; width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 3px solid #2563eb; box-shadow: 0 4px 10px rgba(37,99,235,0.2);" />
+                {% endif %}
+            </div>
+            <div style="flex: 1;">
+                <h4 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 600; color: #1e293b;">Profile Photo</h4>
+                <p style="margin: 0 0 12px 0; font-size: 12.5px; color: #64748b;">Upload a clear avatar or portrait image (PNG, JPG, JPEG)</p>
+                <label for="id_profile_picture" style="display: inline-flex; align-items: center; gap: 8px; background: #2563eb; color: #ffffff; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    Upload New Picture
+                </label>
+                <input type="file" name="profile_picture" id="id_profile_picture" accept="image/*" style="display: none;" onchange="previewImage(this);" />
+            </div>
+        </div>
+
+        <!-- Form Fields Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-row">
+                <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">First Name</label>
+                {{ form.first_name }}
+                {% for err in form.first_name.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
+            </div>
+            <div class="form-row">
+                <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Last Name</label>
+                {{ form.last_name }}
+                {% for err in form.last_name.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
+            </div>
+        </div>
+
+        <div class="form-row" style="margin-top: 14px;">
+            <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Email Address</label>
+            {{ form.email }}
+            {% for err in form.email.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
+        </div>
+
+        {% if form.phone %}
+        <div class="form-row" style="margin-top: 14px;">
+            <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Phone Number</label>
+            {{ form.phone }}
+            {% for err in form.phone.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if form.specialty %}
+        <div class="form-row" style="margin-top: 14px;">
+            <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Medical Specialty</label>
+            {{ form.specialty }}
+            {% for err in form.specialty.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if form.address %}
+        <div class="form-row" style="margin-top: 14px;">
+            <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Home Address</label>
+            {{ form.address }}
+            {% for err in form.address.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if form.bio %}
+        <div class="form-row" style="margin-top: 14px;">
+            <label style="font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; display: block;">Medical Biography</label>
+            {{ form.bio }}
+            {% for err in form.bio.errors %}<div style="color:#ef4444; font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="margin-top: 28px; display: flex; justify-content: flex-end; gap: 12px;">
+            <button type="submit" style="background: #2563eb; color: #ffffff; padding: 12px 28px; border: none; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 12px rgba(37,99,235,0.25);" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                Save Profile Changes
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var img = document.getElementById('avatar-preview');
+            var placeholder = document.getElementById('avatar-preview-placeholder');
+            if (img) {
+                img.src = e.target.result;
+                img.style.display = 'block';
+            }
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+{% endblock %}

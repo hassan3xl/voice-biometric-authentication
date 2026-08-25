@@ -1,0 +1,64 @@
+{% extends 'app/base_doctor.html' %}
+{% block title %}Working Hours Schedule{% endblock %}
+
+{% block doctor_content %}
+<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;">
+        <div>
+            <h1 style="font-size: 1.5rem; font-weight: 700; color: #0f172a; margin: 0;">Working Hours & Availability</h1>
+            <p style="color: #64748b; font-size: 0.875rem; margin-top: 4px;">Set your weekly schedule. Patients will see these hours when requesting appointments.</p>
+        </div>
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Doctor Schedule Control</span>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            {% for day in days_data %}
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border: 1px solid #cbd5e1; border-radius: 10px; background: {% if day.is_available %}#f8fafc{% else %}#f1f5f9{% endif %}; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; gap: 16px; min-width: 160px;">
+                        <label style="position: relative; display: inline-flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" name="available_{{ day.day_code }}" {% if day.is_available %}checked{% endif %} style="width: 20px; height: 20px; accent-color: #2563eb; cursor: pointer;">
+                        </label>
+                        <span style="font-weight: 700; font-size: 15px; color: {% if day.is_available %}#0f172a{% else %}#64748b{% endif %};">
+                            {{ day.day_name }}
+                        </span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13px; font-weight: 600; color: #475569;">Start:</span>
+                            <input type="time" name="start_time_{{ day.day_code }}" value="{{ day.start_time }}" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; background: #ffffff;">
+                        </div>
+
+                        <span style="color: #94a3b8; font-weight: 600;">to</span>
+
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13px; font-weight: 600; color: #475569;">End:</span>
+                            <input type="time" name="end_time_{{ day.day_code }}" value="{{ day.end_time }}" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; background: #ffffff;">
+                        </div>
+                    </div>
+
+                    <div>
+                        {% if day.is_available %}
+                            <span style="background: #dcfce7; color: #15803d; font-weight: 600; font-size: 12px; padding: 4px 10px; border-radius: 9999px;">Available</span>
+                        {% else %}
+                            <span style="background: #f1f5f9; color: #64748b; font-weight: 600; font-size: 12px; padding: 4px 10px; border-radius: 9999px; border: 1px solid #cbd5e1;">Off Day</span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+            <button type="submit" style="background: #2563eb; color: #ffffff; padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save Working Hours
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

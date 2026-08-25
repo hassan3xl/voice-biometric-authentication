@@ -1,0 +1,331 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Voice Biometric Vault Studio | voice biometri{% endblock %}
+
+{% block content %}
+<div class="space-y-8 py-4 max-w-5xl mx-auto">
+  
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel p-6 bg-gradient-to-r from-[#0e1626] to-[#080d18] border-emerald-500/30">
+    <div>
+      <div class="flex items-center gap-2 mb-1">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Voice Biometric Vault Studio</h1>
+        <span class="badge {% if voice_profile.status == 'ACTIVE' %}badge-success{% else %}badge-warning{% endif %} font-mono text-[10px]">
+          {{ voice_profile.get_status_display }}
+        </span>
+      </div>
+      <p class="text-xs text-slate-400">
+        Multi-Pass Deep Acoustic Feature Extraction & Dynamic Anti-Spoofing Calibration
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      {% if voice_profile.status == 'ACTIVE' %}
+      <button onclick="resetVoiceVault()" class="btn-secondary text-xs text-rose-400 hover:text-rose-300 border-rose-500/30 hover:bg-rose-500/10">
+        <i class="fa-solid fa-arrows-rotate"></i> Revoke & Re-train
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- LEFT 2 COLUMNS: Interactive 3-Pass Enrollment Chamber -->
+    <div class="lg:col-span-2 space-y-6">
+      
+      <div class="glass-panel-glow p-6 sm:p-8 space-y-6">
+        
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-waveform-lines text-emerald-400"></i> Interactive 3-Pass Voice Enrollment
+            </h3>
+            <p class="text-xs text-slate-400">Speak each calibrated phrase to train your 192D deep acoustic voiceprint</p>
+          </div>
+          <span id="pass-indicator-badge" class="badge badge-primary font-mono text-xs">
+            Pass <span id="current-pass-num">1</span> of 3
+          </span>
+        </div>
+
+        <!-- 3 Passes Progress Steps -->
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div id="step-card-1" class="p-3 rounded-xl border bg-emerald-950/40 border-emerald-500/40 text-xs font-mono">
+            <p class="text-[10px] text-emerald-400 font-bold">PASS 1</p>
+            <p class="text-slate-200 font-semibold truncate mt-0.5">Master Key</p>
+            <span id="step-status-1" class="text-[10px] text-emerald-400 block mt-1"><i class="fa-solid fa-circle-check"></i> Ready</span>
+          </div>
+
+          <div id="step-card-2" class="p-3 rounded-xl border bg-white/5 border-white/10 text-xs font-mono">
+            <p class="text-[10px] text-slate-400 font-bold">PASS 2</p>
+            <p class="text-slate-200 font-semibold truncate mt-0.5">Numeric Cadence</p>
+            <span id="step-status-2" class="text-[10px] text-slate-400 block mt-1">Pending</span>
+          </div>
+
+          <div id="step-card-3" class="p-3 rounded-xl border bg-white/5 border-white/10 text-xs font-mono">
+            <p class="text-[10px] text-slate-400 font-bold">PASS 3</p>
+            <p class="text-slate-200 font-semibold truncate mt-0.5">Liveness Seal</p>
+            <span id="step-status-3" class="text-[10px] text-slate-400 block mt-1">Pending</span>
+          </div>
+        </div>
+
+        <!-- Current Passphrase Box -->
+        <div class="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-cyan-950/60 border border-emerald-500/40 text-center relative overflow-hidden shadow-inner">
+          <p class="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-bold mb-2">
+            Speak the following phrase clearly:
+          </p>
+          <p id="enrollment-phrase-display" class="font-mono text-base sm:text-lg font-bold text-white bg-black/50 py-3 px-4 rounded-xl border border-white/10 shadow-lg">
+            "My voice is my secure key for this project" 
+          </p>
+          <p class="text-[11px] text-slate-400 mt-2.5">
+            Maintain normal speaking volume and 6-12 inches distance from your microphone.
+          </p>
+        </div>
+
+        <!-- Live Visualizer Canvas & VU Meter -->
+        <div class="space-y-2">
+          <canvas id="enroll-visualizer" class="visualizer-canvas" width="600" height="95"></canvas>
+          <div class="vu-meter-bar">
+            <div id="enroll-vu" class="vu-meter-fill"></div>
+          </div>
+        </div>
+
+        <!-- Recording Button -->
+        <div class="text-center py-2">
+          <button type="button" id="enroll-record-btn" onclick="toggleEnrollmentRecording()" class="voice-record-btn group">
+            <i id="enroll-record-icon" class="fa-solid fa-microphone text-2xl group-hover:scale-110 transition-transform"></i>
+          </button>
+          <p id="enroll-status-text" class="text-xs font-semibold text-slate-300 mt-3">
+            Click to Speak Pass 1
+          </p>
+        </div>
+
+        <!-- Feedback Alert Panel -->
+        <div id="enroll-feedback" class="hidden p-4 rounded-xl text-xs font-mono space-y-1.5 border transition-all"></div>
+
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Acoustic Diagnostics & Security Policy -->
+    <div class="space-y-6">
+      
+      <!-- Acoustic Baseline Health Metrics -->
+      <div class="glass-panel p-6 space-y-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-dna text-emerald-400"></i> Acoustic Baseline Telemetry
+        </h3>
+
+        <div class="space-y-3 text-xs">
+          <div class="flex items-center justify-between p-3 rounded-lg bg-white/5">
+            <span class="text-slate-400">Fundamental Pitch ($F_0$)</span>
+            <span class="font-mono font-bold text-emerald-400">{{ voice_profile.baseline_f0_hz|default:"128.4"|floatformat:1 }} Hz</span>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-lg bg-white/5">
+            <span class="text-slate-400">Spectral Centroid</span>
+            <span class="font-mono font-bold text-cyan-400">{{ voice_profile.baseline_spectral_centroid|default:"2340.0"|floatformat:1 }} Hz</span>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-lg bg-white/5">
+            <span class="text-slate-400">Intra-Speaker Variance</span>
+            <span class="font-mono font-bold text-emerald-400">{{ voice_profile.intra_variance_score|default:"0.042"|floatformat:3 }}</span>
+          </div>
+          <div class="flex items-center justify-between p-3 rounded-lg bg-white/5">
+            <span class="text-slate-400">Micro-Jitter Ratio</span>
+            <span class="font-mono font-bold text-amber-400">{{ voice_profile.baseline_jitter|default:"0.78"|floatformat:2 }}%</span>
+          </div>
+        </div>
+
+        {% if voice_profile.voiceprint_hash %}
+        <div class="p-3 rounded-lg bg-black/40 border border-white/5 text-[10px] font-mono break-all text-slate-400">
+          <span class="text-emerald-400 font-bold block mb-1">SHA-256 Voiceprint Hash:</span>
+          {{ voice_profile.voiceprint_hash }}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Security Level Policy Configuration -->
+      <div class="glass-panel p-6 space-y-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-shield-halved text-cyan-400"></i> Security Clearance Tier
+        </h3>
+        
+        <form method="POST" action="{% url 'app:voice_vault' %}">
+          {% csrf_token %}
+          <input type="hidden" name="update_security_level" value="1">
+
+          <div class="space-y-2 mb-4">
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+              <input type="radio" name="security_level" value="STANDARD" {% if user.security_level == 'STANDARD' %}checked{% endif %} class="text-emerald-500 focus:ring-emerald-500">
+              <div class="text-xs">
+                <p class="font-bold text-slate-200">Standard Tier (Threshold 0.72)</p>
+                <p class="text-slate-400 text-[10px]">Optimal balance for everyday digital banking.</p>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 cursor-pointer hover:bg-emerald-950/30 transition-colors">
+              <input type="radio" name="security_level" value="HIGH" {% if user.security_level == 'HIGH' %}checked{% endif %} class="text-emerald-500 focus:ring-emerald-500">
+              <div class="text-xs">
+                <p class="font-bold text-emerald-300">High Security Tier (Threshold 0.80)</p>
+                <p class="text-slate-400 text-[10px]">Recommended. Step-up required for wires $\ge \$1,000$.</p>
+              </div>
+            </label>
+
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+              <input type="radio" name="security_level" value="STRICT" {% if user.security_level == 'STRICT' %}checked{% endif %} class="text-emerald-500 focus:ring-emerald-500">
+              <div class="text-xs">
+                <p class="font-bold text-slate-200">Strict Forensic Tier (Threshold 0.85)</p>
+                <p class="text-slate-400 text-[10px]">Zero-trust security for institutional treasury.</p>
+              </div>
+            </label>
+          </div>
+
+          <button type="submit" class="btn-secondary w-full text-xs py-2.5">
+            Save Security Policy
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const voiceRecorder = new ApexVoiceRecorder();
+  let isRecording = false;
+  let currentPass = 1;
+
+  const passphrases = [
+    "My voice is my secure key for this project" ,
+    "Authorize biometric voice access for customer profile",
+    "Apex Bank Voice Vault identity verified and protected"
+  ];
+
+  async function toggleEnrollmentRecording() {
+    const btn = document.getElementById('enroll-record-btn');
+    const icon = document.getElementById('enroll-record-icon');
+    const statusText = document.getElementById('enroll-status-text');
+    const canvas = document.getElementById('enroll-visualizer');
+    const vu = document.getElementById('enroll-vu');
+    const feedback = document.getElementById('enroll-feedback');
+
+    if (!isRecording) {
+      // Start Recording Pass
+      try {
+        await voiceRecorder.startRecording(canvas, vu);
+        isRecording = true;
+        btn.classList.add('recording');
+        icon.className = 'fa-solid fa-stop text-2xl text-white';
+        statusText.innerHTML = `<span class="text-rose-400 animate-pulse font-bold"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Recording Pass ${currentPass}... Speak phrase</span>`;
+        feedback.classList.add('hidden');
+      } catch (err) {
+        alert(err.message || "Microphone access failed.");
+      }
+    } else {
+      // Stop Recording & Send Pass to Server
+      isRecording = false;
+      btn.classList.remove('recording');
+      icon.className = 'fa-solid fa-spinner fa-spin text-2xl text-white';
+      statusText.innerHTML = `<span class="text-cyan-400"><i class="fa-solid fa-brain-circuit animate-spin mr-1"></i> Processing Pass ${currentPass} (MFCC 60D + 192D Embedding)...</span>`;
+
+      const audioResult = await voiceRecorder.stopRecording();
+      if (!audioResult) {
+        icon.className = 'fa-solid fa-microphone text-2xl';
+        statusText.innerText = 'Recording failed. Please try again.';
+        return;
+      }
+
+      const phrase = passphrases[currentPass - 1];
+
+      const formData = new FormData();
+      formData.append('pass_index', currentPass);
+      formData.append('audio_data', audioResult.base64Wav);
+      formData.append('passphrase', phrase);
+
+      const csrftoken = '{{ csrf_token }}';
+
+      try {
+        const response = await fetch("{% url 'app:api_voice_enroll' %}", {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrftoken
+          },
+          body: formData
+        });
+        const resData = await response.json();
+
+        icon.className = 'fa-solid fa-microphone text-2xl';
+
+        if (response.ok && resData.status === 'success') {
+          // Update step indicator
+          const stepCard = document.getElementById(`step-card-${currentPass}`);
+          const stepStatus = document.getElementById(`step-status-${currentPass}`);
+          if (stepCard) {
+            stepCard.className = 'p-3 rounded-xl border bg-emerald-950/60 border-emerald-500/60 text-xs font-mono';
+            stepStatus.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i> Captured';
+          }
+
+          if (resData.is_complete || currentPass === 3) {
+            statusText.innerHTML = '<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Voiceprint Enrollment Complete! Vault Sealed.</span>';
+            feedback.className = 'p-4 rounded-xl text-xs font-mono space-y-1.5 border bg-emerald-950/70 border-emerald-500/40 text-emerald-300';
+            feedback.innerHTML = `
+              <div class="font-bold text-sm text-emerald-200"><i class="fa-solid fa-vault mr-1"></i> VOICE VAULT ACTIVATED</div>
+              <div>Intra-Speaker Consistency: ${resData.intra_variance} | Pitch: ${resData.pitch_hz} Hz</div>
+              <div>SHA-256 Hash: ${resData.voiceprint_hash}</div>
+            `;
+            feedback.classList.remove('hidden');
+
+            setTimeout(() => {
+              window.location.reload();
+            }, 1800);
+          } else {
+            // Advance to next pass
+            currentPass += 1;
+            document.getElementById('current-pass-num').innerText = currentPass;
+            document.getElementById('enrollment-phrase-display').innerText = `"${passphrases[currentPass - 1]}"`;
+            
+            const nextCard = document.getElementById(`step-card-${currentPass}`);
+            const nextStatus = document.getElementById(`step-status-${currentPass}`);
+            if (nextCard) {
+              nextCard.className = 'p-3 rounded-xl border bg-emerald-950/40 border-emerald-500/40 text-xs font-mono';
+              nextStatus.innerHTML = '<i class="fa-solid fa-circle-dot text-emerald-400 animate-pulse"></i> Ready';
+            }
+
+            statusText.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check mr-1"></i> Pass ${currentPass - 1} Saved! Ready for Pass ${currentPass}</span>`;
+          }
+        } else {
+          statusText.innerHTML = '<span class="text-rose-400 font-bold">Pass Rejected</span>';
+          feedback.className = 'p-4 rounded-xl text-xs font-mono space-y-1.5 border bg-rose-950/70 border-rose-500/40 text-rose-300';
+          feedback.innerHTML = `<div>${resData.message}</div>`;
+          feedback.classList.remove('hidden');
+        }
+      } catch (err) {
+        icon.className = 'fa-solid fa-microphone text-2xl';
+        statusText.innerText = 'Network error during enrollment.';
+      }
+    }
+  }
+
+  async function resetVoiceVault() {
+    if (!confirm("Are you sure you want to revoke and reset your voiceprint profile?")) return;
+    
+    const csrftoken = '{{ csrf_token }}';
+    try {
+      const res = await fetch("{% url 'app:api_voice_reset' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrftoken }
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        alert("Voiceprint profile reset. Please complete a fresh 3-pass enrollment.");
+        window.location.reload();
+      }
+    } catch (e) {
+      alert("Reset failed.");
+    }
+  }
+</script>
+{% endblock %}

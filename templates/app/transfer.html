@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Wire & Funds Transfer | Apex Bank{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8 py-4">
+  
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Wire & Account Transfer</h1>
+      <p class="text-xs text-slate-400">Transfer funds seamlessly protected by AI Voice Biometric Step-Up Authorization</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-xs text-slate-400">Checking Balance:</span>
+      <span class="font-mono font-bold text-emerald-400 text-sm">${{ user.checking_balance|floatformat:2 }}</span>
+    </div>
+  </div>
+
+  <!-- Saved Beneficiaries Quick Select -->
+  {% if beneficiaries %}
+  <div class="space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-xs font-mono uppercase tracking-wider text-slate-400 font-bold">Quick Select Beneficiary</h3>
+      <a href="{% url 'app:beneficiaries' %}" class="text-xs text-emerald-400 hover:underline">Manage All</a>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {% for bene in beneficiaries %}
+      <div onclick="selectBeneficiary('{{ bene.name|escapejs }}', '{{ bene.account_number|escapejs }}')" class="glass-panel p-3.5 cursor-pointer hover:border-emerald-500/50 hover:bg-emerald-950/20 transition-all text-xs group">
+        <div class="flex items-center gap-2 mb-1">
+          <div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px] group-hover:scale-110 transition-transform">
+            {{ bene.name|slice:":1" }}
+          </div>
+          <p class="font-semibold text-slate-200 truncate">{{ bene.name }}</p>
+        </div>
+        <p class="font-mono text-slate-400 text-[10px] truncate">#{{ bene.account_number }}</p>
+        <p class="text-slate-400 text-[10px] truncate mt-0.5">{{ bene.bank_name }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Transfer Form Card -->
+  <div class="glass-panel-glow p-6 sm:p-8">
+    <form method="POST" action="{% url 'app:transfer' %}" class="space-y-5">
+      {% csrf_token %}
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div class="form-group mb-0">
+          <label class="form-label" for="transfer-recipient-name">Recipient Full Name</label>
+          <input type="text" name="recipient_name" id="transfer-recipient-name" class="form-input" placeholder="e.g. Sophia Laurent" value="{{ form.recipient_name.value|default:'' }}" required>
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label" for="transfer-recipient-account">Recipient Account Number / IBAN</label>
+          <input type="text" name="recipient_account" id="transfer-recipient-account" class="form-input" placeholder="e.g. 4091823741" value="{{ form.recipient_account.value|default:'' }}" required>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <div class="form-group mb-0">
+          <label class="form-label" for="transfer-amount">Transfer Amount ($ USD)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-emerald-400 font-bold text-lg">
+              $
+            </span>
+            <input type="number" name="amount" id="transfer-amount" class="form-input pl-9 text-xl font-bold text-emerald-400" placeholder="1250.00" step="0.01" value="{{ form.amount.value|default:'1500.00' }}" required>
+          </div>
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label" for="transfer-category">Transfer Classification</label>
+          <select name="category" id="transfer-category" class="form-select">
+            <option value="TRANSFER">Direct Account Transfer</option>
+            <option value="WIRE" selected>Priority FedWire Transfer</option>
+            <option value="BILL_PAY">Commercial Bill Payment</option>
+            <option value="INSTANT">Instant Voice Cash Pass</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="transfer-memo">Payment Memo / Invoice Reference</label>
+        <input type="text" name="description" id="transfer-memo" class="form-input" placeholder="Consulting Retainer Q3" value="{{ form.description.value|default:'' }}">
+      </div>
+
+      <!-- Security Step-Up Policy Alert -->
+      <div class="p-4 rounded-xl bg-gradient-to-r from-emerald-950/40 via-teal-950/40 to-cyan-950/40 border border-emerald-500/30 text-xs text-slate-300 flex items-start gap-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-microphone-lines-waveform text-sm"></i>
+        </div>
+        <div class="space-y-1">
+          <p class="font-bold text-emerald-300">Voice Biometric Step-Up Clearance Protocol</p>
+          <p class="text-slate-400 leading-relaxed">
+            Transfers of $1,000.00 or higher, and Priority Wire Transfers require real-time spoken passphrase verification to prevent unauthorized financial exfiltration.
+          </p>
+        </div>
+      </div>
+
+      <div class="pt-3 flex items-center justify-between">
+        <a href="{% url 'app:banking_dashboard' %}" class="btn-secondary text-xs">
+          Cancel
+        </a>
+        <button type="submit" class="btn-primary text-sm px-6 py-3">
+          <i class="fa-solid fa-lock-keyhole"></i> Authorize & Proceed
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function selectBeneficiary(name, account) {
+    document.getElementById('transfer-recipient-name').value = name;
+    document.getElementById('transfer-recipient-account').value = account;
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}voice biometri | Voice Authentication{% endblock %}</title>
+  <meta name="description" content="voice biometri - Voice biometric authentication system for digital banking security." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          boxShadow: { soft: '0 10px 30px rgba(15, 23, 42, 0.08)' }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <script src="{% static 'js/voice_recorder.js' %}"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased">
+  <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <a href="{% url 'app:home' %}" class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-soft">
+          <i class="fa-solid fa-waveform-lines text-lg"></i>
+        </div>
+        <div>
+          <p class="text-base font-extrabold tracking-wide text-slate-900">voice biometri</p>
+          <p class="text-xs text-slate-500">Voice Biometric Authentication System</p>
+        </div>
+      </a>
+
+      <nav class="flex items-center gap-2 text-sm font-medium">
+        {% if user.is_authenticated %}
+          <a href="{% url 'app:banking_dashboard' %}" class="rounded-full px-4 py-2 transition {% if request.resolver_match.url_name == 'banking_dashboard' or request.resolver_match.url_name == 'home' %}bg-emerald-600 text-white{% else %}text-slate-600 hover:bg-slate-100 hover:text-slate-900{% endif %}">Dashboard</a>
+          <a href="{% url 'app:voice_vault' %}" class="rounded-full px-4 py-2 transition {% if request.resolver_match.url_name == 'voice_vault' %}bg-emerald-600 text-white{% else %}text-slate-600 hover:bg-slate-100 hover:text-slate-900{% endif %}">Voice Vault</a>
+          <a href="{% url 'app:evaluation_dashboard' %}" class="rounded-full px-4 py-2 transition {% if request.resolver_match.url_name == 'evaluation_dashboard' %}bg-emerald-600 text-white{% else %}text-slate-600 hover:bg-slate-100 hover:text-slate-900{% endif %}">Evaluation</a>
+          <a href="{% url 'app:audit_logs' %}" class="rounded-full px-4 py-2 transition {% if request.resolver_match.url_name == 'audit_logs' %}bg-emerald-600 text-white{% else %}text-slate-600 hover:bg-slate-100 hover:text-slate-900{% endif %}">Audit Logs</a>
+          <a href="{% url 'app:logout' %}" class="rounded-full bg-slate-900 px-4 py-2 text-white transition hover:bg-slate-700">Logout</a>
+        {% else %}
+          <a href="{% url 'app:login' %}" class="rounded-full px-4 py-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">Login</a>
+          <a href="{% url 'app:register' %}" class="rounded-full bg-emerald-600 px-4 py-2 text-white transition hover:bg-emerald-700">Register</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  {% if messages %}
+    <div class="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+      <div class="space-y-3">
+        {% for message in messages %}
+          <div class="flex items-center justify-between rounded-2xl border px-4 py-3 text-sm shadow-soft {% if message.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% elif message.tags == 'error' %}border-rose-200 bg-rose-50 text-rose-800{% else %}border-sky-200 bg-sky-50 text-sky-800{% endif %}">
+            <div class="flex items-center gap-3">
+              {% if message.tags == 'success' %}
+                <i class="fa-solid fa-circle-check text-emerald-600"></i>
+              {% elif message.tags == 'error' %}
+                <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>
+              {% else %}
+                <i class="fa-solid fa-circle-info text-sky-600"></i>
+              {% endif %}
+              <span>{{ message }}</span>
+            </div>
+            <button type="button" onclick="this.closest('div').remove()" class="text-slate-400 hover:text-slate-700">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white py-6">
+    <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-xs text-slate-500 sm:px-6 lg:px-8 md:flex-row">
+      <div class="space-y-1 text-center md:text-left">
+        <p class="font-extrabold text-slate-800 text-sm">voice biometri</p>
+        <p class="font-medium text-slate-600">Design, Implementation, and Performance Evaluation of a Voice Biometric Authentication System for Digital Banking Security</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900">
+          <i class="fa-brands fa-github text-sm"></i>
+          <span>GitHub Source</span>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
+

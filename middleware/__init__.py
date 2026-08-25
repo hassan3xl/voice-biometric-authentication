@@ -1,0 +1,2 @@
+# the middleware should habdle isolation, security, and request/response processing for the application. It should be designed to intercept incoming requests, apply necessary checks and transformations, and then pass the modified request to the next layer of the application. Additionally, it should handle any exceptions that may arise during processing and ensure that sensitive information is protected throughout the request lifecycle.
+# it should also handle throtling and permission

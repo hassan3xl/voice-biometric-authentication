@@ -1,0 +1,219 @@
+{% extends 'app/base.html' %}
+{% block title %}Home{% endblock %}
+
+{% block extra_css %}
+<style>
+    .home-container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 0 16px;
+    }
+    .hero-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 20px;
+        padding: 48px 32px;
+        text-align: center;
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 36px;
+    }
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #ecfdf5;
+        color: #047857;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        border: 1px solid #a7f3d0;
+        margin-bottom: 20px;
+    }
+    .hero-title {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.25;
+        margin-bottom: 16px;
+        letter-spacing: -0.02em;
+    }
+    .hero-subtitle {
+        font-size: 1.1rem;
+        color: #475569;
+        max-width: 640px;
+        margin: 0 auto 32px;
+        line-height: 1.6;
+    }
+    .hero-actions {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .btn-hero-primary {
+        background: #059669;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 15px;
+        padding: 14px 28px;
+        border-radius: 10px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    }
+    .btn-hero-primary:hover {
+        background: #047857;
+        transform: translateY(-2px);
+    }
+    .btn-hero-secondary {
+        background: #0f172a;
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 15px;
+        padding: 14px 28px;
+        border-radius: 10px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.2s, background 0.2s;
+    }
+    .btn-hero-secondary:hover {
+        background: #1e293b;
+        transform: translateY(-2px);
+    }
+    .portal-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 16px;
+    }
+    @media (max-width: 640px) {
+        .portal-grid {
+            grid-template-columns: 1fr;
+        }
+        .hero-title {
+            font-size: 1.85rem;
+        }
+    }
+    .portal-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 32px 24px;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .portal-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.08);
+        border-color: #cbd5e1;
+    }
+    .portal-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 16px;
+    }
+    .portal-card-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+    }
+    .portal-card-text {
+        font-size: 14px;
+        color: #64748b;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block main_content %}
+<div class="home-container">
+    <div class="hero-card">
+        <div class="hero-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M12 2a7 7 0 0 1 7 7v1a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V9a7 7 0 0 1 7-7z"/>
+                <path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/>
+            </svg>
+            Automated Hospital Management System
+        </div>
+        <h1 class="hero-title">Hospital Care Simplified for Patients & Doctors</h1>
+        <p class="hero-subtitle">
+            One platform to connect patients with top medical specialists. Schedule visits, receive real-time appointment notifications, and manage care seamlessly.
+        </p>
+
+        {% if not user.is_authenticated %}
+            <div class="hero-actions">
+                <a href="{% url 'app:patient_register' %}" class="btn-hero-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                    </svg>
+                    Register as Patient
+                </a>
+                <a href="{% url 'app:doctor_apply' %}" class="btn-hero-secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    Doctor Join / Register
+                </a>
+            </div>
+        {% else %}
+            <div class="hero-actions">
+                {% if user.role == 'patient' %}
+                    <a href="{% url 'app:doctor_list' %}" class="btn-hero-primary">Browse Doctor Directory</a>
+                    <a href="{% url 'app:patient_dashboard' %}" class="btn-hero-secondary">My Patient Dashboard</a>
+                {% elif user.role == 'doctor' %}
+                    {% if user.doctor_profile and user.doctor_profile.approved %}
+                        <a href="{% url 'app:doctor_dashboard' %}" class="btn-hero-primary">My Doctor Dashboard</a>
+                    {% elif user.doctor_profile %}
+                        <a href="{% url 'app:doctor_pending_approval' %}" class="btn-hero-primary">Check Approval Status</a>
+                    {% else %}
+                        <a href="{% url 'app:doctor_onboarding' %}" class="btn-hero-primary">Complete Onboarding</a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% if not user.is_authenticated %}
+        <div class="portal-grid">
+            <div class="portal-card">
+                <div class="portal-icon" style="background: #e0f2fe; color: #0ea5e9;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                </div>
+                <h2 class="portal-card-title">Patient Portal</h2>
+                <p class="portal-card-text">Search specialists by department, pick preferred visit times with Flatpickr, and track status notifications in real time.</p>
+                <a href="{% url 'app:patient_register' %}" style="color: #0ea5e9; font-weight: 600; text-decoration: none; font-size: 14px;">Patient Registration →</a>
+            </div>
+
+            <div class="portal-card">
+                <div class="portal-icon" style="background: #ecfdf5; color: #10b981;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                </div>
+                <h2 class="portal-card-title">Doctor Portal</h2>
+                <p class="portal-card-text">Quick email signup, streamlined medical onboarding, status notifications, and appointment approval dashboard.</p>
+                <a href="{% url 'app:doctor_apply' %}" style="color: #10b981; font-weight: 600; text-decoration: none; font-size: 14px;">Doctor Registration →</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

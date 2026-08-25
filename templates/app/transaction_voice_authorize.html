@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Voice Biometric Step-Up Authorization | Apex Bank{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-6 space-y-6">
+  
+  <!-- Header -->
+  <div class="text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono mb-2">
+      <i class="fa-solid fa-shield-halved animate-pulse"></i> Step-Up Biometric Authorization Required
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Voice Biometric Clearance</h1>
+    <p class="text-xs text-slate-400 max-w-md mx-auto mt-1">
+      Speak the dynamic authorization challenge into your microphone to release transaction funds.
+    </p>
+  </div>
+
+  <!-- Transaction Details Summary Card -->
+  <div class="glass-panel p-5 bg-gradient-to-r from-[#0e1626] to-[#0a1120] border-emerald-500/30">
+    <div class="flex items-center justify-between border-b border-white/10 pb-3 mb-3">
+      <div>
+        <p class="text-[11px] text-slate-400 uppercase font-mono tracking-wider">Transaction Amount</p>
+        <h3 class="text-2xl font-extrabold text-emerald-400 font-mono">${{ transaction.amount|floatformat:2 }}</h3>
+      </div>
+      <div class="text-right">
+        <span class="badge badge-warning text-[10px]">Pending Biometric Release</span>
+        <p class="text-[10px] text-slate-400 font-mono mt-1">ID: #{{ transaction.transaction_id }}</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 text-xs font-mono">
+      <div>
+        <span class="text-slate-400 block text-[10px]">Beneficiary Recipient</span>
+        <span class="text-slate-200 font-bold">{{ transaction.recipient_name }}</span>
+      </div>
+      <div class="text-right">
+        <span class="text-slate-400 block text-[10px]">Account / IBAN</span>
+        <span class="text-slate-200 font-bold">#{{ transaction.recipient_account }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Voice Biometric Authorization Vault Chamber -->
+  <div class="glass-panel-glow p-6 sm:p-8 space-y-6">
+    
+    <!-- Dynamic Security Challenge Display -->
+    <div class="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-cyan-950/60 border border-emerald-500/40 text-center relative overflow-hidden shadow-inner">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
+          <i class="fa-solid fa-microphone-lines-waveform animate-pulse"></i> Dynamic Spoken Passphrase
+        </span>
+        <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded-full border border-cyan-500/30">
+          ISO/IEC 30107 Active PAD
+        </span>
+      </div>
+      <p id="challenge-display" class="font-mono text-base sm:text-lg font-bold text-white bg-black/50 py-3 px-4 rounded-xl border border-white/10 shadow-lg">
+        "{{ challenge_phrase }}"
+      </p>
+      <p class="text-[11px] text-slate-400 mt-2.5">
+        Click the button below and speak the exact phrase above with natural cadence.
+      </p>
+    </div>
+
+    <!-- Live Oscilloscope & Audio Frequency Visualizer -->
+    <div class="space-y-2">
+      <canvas id="auth-visualizer" class="visualizer-canvas" width="600" height="95"></canvas>
+      <div class="vu-meter-bar">
+        <div id="auth-vu" class="vu-meter-fill"></div>
+      </div>
+    </div>
+
+    <!-- Big Pulsing Record Button -->
+    <div class="text-center py-2">
+      <button type="button" id="auth-record-btn" onclick="toggleStepUpRecording()" class="voice-record-btn group">
+        <i id="auth-record-icon" class="fa-solid fa-microphone text-2xl group-hover:scale-110 transition-transform"></i>
+      </button>
+      <p id="auth-status-text" class="text-xs font-semibold text-slate-300 mt-3">
+        Click to Speak Authorization Challenge
+      </p>
+    </div>
+
+    <!-- Live AI Feedback Panel -->
+    <div id="auth-feedback" class="hidden p-4 rounded-xl text-xs font-mono space-y-1.5 border transition-all"></div>
+
+    <div class="text-center pt-2">
+      <a href="{% url 'app:banking_dashboard' %}" class="text-xs text-slate-400 hover:text-rose-400 transition-colors">
+        <i class="fa-solid fa-ban mr-1"></i> Cancel Transfer & Return to Dashboard
+      </a>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  const voiceRecorder = new ApexVoiceRecorder();
+  let isRecording = false;
+
+  async function toggleStepUpRecording() {
+    const btn = document.getElementById('auth-record-btn');
+    const icon = document.getElementById('auth-record-icon');
+    const statusText = document.getElementById('auth-status-text');
+    const canvas = document.getElementById('auth-visualizer');
+    const vu = document.getElementById('auth-vu');
+    const feedback = document.getElementById('auth-feedback');
+
+    if (!isRecording) {
+      // Start Recording
+      try {
+        await voiceRecorder.startRecording(canvas, vu);
+        isRecording = true;
+        btn.classList.add('recording');
+        icon.className = 'fa-solid fa-stop text-2xl text-white';
+        statusText.innerHTML = '<span class="text-rose-400 animate-pulse font-bold"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Recording Audio... Speak dynamic challenge now</span>';
+        feedback.classList.add('hidden');
+      } catch (err) {
+        alert(err.message || "Could not access microphone.");
+      }
+    } else {
+      // Stop Recording & Send Verification
+      isRecording = false;
+      btn.classList.remove('recording');
+      icon.className = 'fa-solid fa-spinner fa-spin text-2xl text-white';
+      statusText.innerHTML = '<span class="text-cyan-400"><i class="fa-solid fa-brain-circuit animate-spin mr-1"></i> Verifying 192D Voiceprint & Anti-Spoofing Liveness...</span>';
+
+      const audioResult = await voiceRecorder.stopRecording();
+      if (!audioResult) {
+        icon.className = 'fa-solid fa-microphone text-2xl';
+        statusText.innerText = 'Recording failed. Try again.';
+        return;
+      }
+
+      const rawChallenge = document.getElementById('challenge-display').innerText.replace(/^"|"$/g, '');
+
+      const formData = new FormData();
+      formData.append('transaction_id', '{{ transaction.transaction_id }}');
+      formData.append('audio_data', audioResult.base64Wav);
+      formData.append('challenge_phrase', rawChallenge);
+      formData.append('spoken_transcript', audioResult.transcript);
+
+      // CSRF token
+      const csrftoken = '{{ csrf_token }}';
+
+      try {
+        const response = await fetch("{% url 'app:api_voice_verify_step_up' %}", {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrftoken
+          },
+          body: formData
+        });
+        const resData = await response.json();
+
+        icon.className = 'fa-solid fa-microphone text-2xl';
+
+        if (response.ok && resData.status === 'success') {
+          statusText.innerHTML = '<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> Biometric Authorization Succeeded! Transfer Released.</span>';
+          feedback.className = 'p-4 rounded-xl text-xs font-mono space-y-1.5 border bg-emerald-950/70 border-emerald-500/40 text-emerald-300';
+          feedback.innerHTML = `
+            <div class="flex items-center justify-between font-bold text-sm text-emerald-200">
+              <span><i class="fa-solid fa-shield-check mr-1"></i> WIRE AUTHORIZED</span>
+              <span>${resData.metrics.confidence_pct}% Confidence</span>
+            </div>
+            <div>Similarity Score: ${resData.metrics.similarity_score} | Liveness: ${resData.metrics.liveness_score}</div>
+            <div>Inference Latency: ${resData.metrics.latency_ms} ms | SNR: ${resData.metrics.snr_db} dB</div>
+          `;
+          feedback.classList.remove('hidden');
+
+          setTimeout(() => {
+            window.location.href = resData.redirect_url;
+          }, 1400);
+        } else {
+          statusText.innerHTML = '<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle-xmark mr-1"></i> Authorization Denied</span>';
+          feedback.className = 'p-4 rounded-xl text-xs font-mono space-y-1.5 border bg-rose-950/70 border-rose-500/40 text-rose-300';
+          feedback.innerHTML = `
+            <div class="font-bold text-sm text-rose-200"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${resData.decision || 'REJECTED'}</div>
+            <div>${resData.message}</div>
+            ${resData.metrics ? `<div>Sim Score: ${resData.metrics.similarity_score || 0} | Liveness: ${resData.metrics.liveness_score || 0} | Latency: ${resData.metrics.latency_ms || 0}ms</div>` : ''}
+          `;
+          feedback.classList.remove('hidden');
+        }
+      } catch (err) {
+        icon.className = 'fa-solid fa-microphone text-2xl';
+        statusText.innerText = 'Network error during step-up authorization.';
+      }
+    }
+  }
+</script>
+{% endblock %}

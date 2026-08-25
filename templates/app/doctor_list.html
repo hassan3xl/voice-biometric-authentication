@@ -1,0 +1,196 @@
+{% extends 'app/base_patient.html' %}
+{% block title %}Find Doctor{% endblock %}
+
+{% block extra_css %}
+<style>
+    .doctor-directory-header {
+        margin-bottom: 24px;
+    }
+    .filter-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 28px;
+    }
+    .filter-form {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .doctor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+    }
+    .doctor-card-modern {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .doctor-card-modern:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.08);
+        border-color: #cbd5e1;
+    }
+    .doctor-avatar-box {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: #e0f2fe;
+        display: grid;
+        place-items: center;
+        border: 2px solid #0ea5e9;
+        flex-shrink: 0;
+    }
+    .doctor-avatar-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .specialty-badge {
+        display: inline-block;
+        background: #e0f2fe;
+        color: #0369a1;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        margin-top: 4px;
+    }
+    .book-btn {
+        width: 100%;
+        background: #059669;
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 14px;
+        padding: 10px;
+        border-radius: 8px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 16px;
+        transition: background 0.2s;
+    }
+    .book-btn:hover {
+        background: #047857;
+    }
+</style>
+{% endblock %}
+
+{% block patient_content %}
+<div class="doctor-directory-header">
+    <h1 style="font-size: 1.75rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">Find a Specialist</h1>
+    <p style="color: #64748b; margin: 0;">Browse approved healthcare professionals and schedule an appointment.</p>
+</div>
+
+<div class="filter-card">
+    <form method="get" class="filter-form">
+        <label for="specialty" style="font-weight: 600; font-size: 14px; color: #334155; margin: 0;">Medical Specialty:</label>
+        <select name="specialty" id="specialty" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; flex-grow: 1; max-width: 300px;">
+            <option value="">All Specialties</option>
+            {% for value, label in specialties %}
+                <option value="{{ value }}" {% if selected_specialty == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" style="padding: 8px 18px; background: #0f172a; color: #fff; border-radius: 6px; font-weight: 600;">Filter Results</button>
+        {% if selected_specialty %}
+            <a href="{% url 'app:doctor_list' %}" style="color: #64748b; text-decoration: none; font-size: 14px; font-weight: 500;">Clear Filter</a>
+        {% endif %}
+    </form>
+</div>
+
+{% if doctors %}
+    <div class="doctor-grid">
+        {% for doctor in doctors %}
+            <div class="doctor-card-modern">
+                <div>
+                    <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 14px;">
+                        <div class="doctor-avatar-box">
+                            {% if doctor.doctor_profile.profile_picture %}
+                                <img src="{{ doctor.doctor_profile.profile_picture.url }}" alt="Dr. {{ doctor.get_full_name }}">
+                            {% else %}
+                                <svg viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" width="32" height="32">
+                                    <path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z"/>
+                                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                                </svg>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h2 style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0;">Dr. {{ doctor.get_full_name|default:doctor.email }}</h2>
+                            <span class="specialty-badge">{{ doctor.doctor_profile.get_specialty_display }}</span>
+                        </div>
+                    </div>
+
+                    <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 8px 0;">
+                        {{ doctor.doctor_profile.bio|default:"Experienced medical specialist providing patient-centered care."|truncatewords:20 }}
+                    </p>
+
+                    <!-- Doctor Working Hours Badge List -->
+                    <div style="margin-top: 12px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <span style="display: block; font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 6px;">
+                            Working Hours:
+                        </span>
+                        {% with wh_list=doctor.get_working_hours_list %}
+                            {% if wh_list %}
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                    {% for wh in wh_list %}
+                                        <span style="font-size: 11px; font-weight: 600; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px;">
+                                            {{ wh.get_day_display|slice:":3" }}: {{ wh.start_time|time:"g:iA" }}-{{ wh.end_time|time:"g:iA" }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <span style="font-size: 12px; color: #64748b; font-style: italic;">Mon – Fri: 9:00 AM – 5:00 PM</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+
+                <div>
+                    {% if doctor.pk in active_doctor_ids %}
+                        <div style="margin-top: 14px;">
+                            <span style="display: block; font-size: 11.5px; font-weight: 700; color: #b45309; background: #fffbeb; border: 1px solid #fcd34d; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; text-align: center;">
+                                ⏳ Active Appointment Pending
+                            </span>
+                            <a href="{% url 'app:patient_appointments' %}" style="width: 100%; background: #64748b; color: #ffffff; font-weight: 600; font-size: 13.5px; padding: 9px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                View My Appointment
+                            </a>
+                        </div>
+                    {% else %}
+                        <a href="{% url 'app:request_appointment' doctor.pk %}" class="book-btn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                <line x1="16" y1="2" x2="16" y2="6"/>
+                                <line x1="8" y1="2" x2="8" y2="6"/>
+                                <line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                            Book Appointment
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div style="text-align: center; padding: 40px; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" width="48" height="48" style="margin-bottom: 12px;">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p style="color: #64748b; font-size: 15px; margin: 0;">No approved doctors found in this specialty. Please try selecting a different specialty.</p>
+    </div>
+{% endif %}
+{% endblock %}
