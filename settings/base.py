@@ -83,9 +83,11 @@ STORAGES = {
     
     # Static: Serves static files reliably in production using WhiteNoise
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.ManifestStaticFilesStorage",
     },
 }
+
+WHITENOISE_MANIFEST_STRICT = False
 
 STORAGE_BACKEND = 'django.core.files.storage.FileSystemStorage'
 
