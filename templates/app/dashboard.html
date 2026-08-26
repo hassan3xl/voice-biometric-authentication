@@ -350,15 +350,17 @@
       try {
         await voiceRecorder.startRecording(canvas, vu);
         isTestRecording = true;
-        isStarting = false;
         btn.classList.add('recording');
         icon.className = 'fa-solid fa-stop text-2xl';
         statusText.innerHTML = '<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle text-[8px] animate-pulse mr-1"></i> Recording... Speak phrase clearly</span>';
         feedback.classList.add('hidden');
       } catch (err) {
-        isStarting = false;
         icon.className = 'fa-solid fa-microphone text-2xl';
         statusText.innerHTML = `<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${err.message || 'Mic access failed'}</span>`;
+        feedback.className = 'mt-4 rounded-2xl border border-rose-500/50 bg-rose-950/80 p-4 text-xs font-mono text-rose-200 block';
+        feedback.innerHTML = `<div><strong class="text-rose-300"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Microphone Alert:</strong> ${err.message || 'Mic access failed'}</div>`;
+      } finally {
+        isStarting = false;
       }
       return;
     }

@@ -24,7 +24,29 @@ class ApexVoiceRecorder {
      * Initializes microphone stream and Web Audio nodes safely across desktop & mobile browsers.
      */
     async init() {
-        // Clean up previous stream if inactive
+        // 1. Create and resume AudioContext synchronously on user touch/click gesture thread
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+            throw new Error("Web Audio API is not supported in this browser.");
+        }
+
+        if (!this.audioContext || this.audioContext.state === 'closed') {
+            try {
+                this.audioContext = new AudioCtx({ sampleRate: this.targetSampleRate });
+            } catch (e) {
+                this.audioContext = new AudioCtx();
+            }
+        }
+
+        if (this.audioContext.state === 'suspended') {
+            try {
+                await this.audioContext.resume();
+            } catch (e) {
+                console.warn("AudioContext resume warning:", e);
+            }
+        }
+
+        // 2. Clean up previous stream if inactive
         if (this.mediaStream) {
             const tracks = this.mediaStream.getAudioTracks();
             if (tracks.length > 0 && tracks[0].readyState !== 'live') {
@@ -32,6 +54,7 @@ class ApexVoiceRecorder {
             }
         }
 
+        // 3. Request microphone access
         if (!this.mediaStream) {
             try {
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -44,7 +67,12 @@ class ApexVoiceRecorder {
                             legacyGetUserMedia.call(navigator, { audio: true }, resolve, reject);
                         });
                     } else {
-                        throw new Error("Microphone API (getUserMedia) requires HTTPS or localhost (127.0.0.1). Please open this site over a secure HTTPS connection or via http://localhost.");
+                        const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                        if (!isSecure) {
+                            throw new Error("Microphone access requires HTTPS. Please access this application via HTTPS (e.g., https://" + window.location.host + ").");
+                        } else {
+                            throw new Error("Microphone permission or API not available in this browser context.");
+                        }
                     }
                 } else {
                     this.mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -57,31 +85,7 @@ class ApexVoiceRecorder {
                 }
             } catch (err) {
                 console.error("Microphone access failed:", err);
-                throw new Error(err.message || "Microphone access denied or not available. Please allow microphone permissions in your browser.");
-            }
-        }
-
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) {
-            throw new Error("Web Audio API is not supported in this browser.");
-        }
-
-        if (!this.audioContext || this.audioContext.state === 'closed') {
-            try {
-                // Try 16kHz explicit rate first
-                this.audioContext = new AudioCtx({ sampleRate: this.targetSampleRate });
-            } catch (e) {
-                // Fallback to hardware default rate (e.g., 44100 / 48000 Hz)
-                this.audioContext = new AudioCtx();
-            }
-        }
-
-        // Resume AudioContext if suspended (critical for mobile browser user gestures)
-        if (this.audioContext.state === 'suspended') {
-            try {
-                await this.audioContext.resume();
-            } catch (e) {
-                console.warn("AudioContext resume failed:", e);
+                throw new Error(err.message || "Microphone permission denied or not available.");
             }
         }
 
