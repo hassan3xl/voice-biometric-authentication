@@ -28,6 +28,7 @@ ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'cloudinary_storage',
+    'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
     'cloudinary',
     'django.contrib.admin',
@@ -37,7 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'app.apps.AppConfig',
     'notifications',
-    'whitenoise.runserver_nostatic',
 ]
 
 AUTH_USER_MODEL = 'app.User'
@@ -81,9 +81,9 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     
-    # Static: Stays local (or use WhiteNoise in production)
+    # Static: Serves static files reliably in production using WhiteNoise
     "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
@@ -147,16 +147,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-
-
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
-
-# Use WhiteNoise's compressed manifest storage for production-ready static files
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = "media/"
 
