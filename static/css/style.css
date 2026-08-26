@@ -250,14 +250,28 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   cursor: pointer;
   position: relative;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 30;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, box-shadow 0.25s ease, background 0.3s ease;
   box-shadow: 0 0 35px rgba(16, 185, 129, 0.4);
   margin: 0 auto;
+}
+
+.voice-record-btn * {
+  pointer-events: none !important;
 }
 
 .voice-record-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 0 45px rgba(16, 185, 129, 0.6);
+}
+
+.voice-record-btn:active {
+  transform: scale(0.92);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.8);
 }
 
 .voice-record-btn.recording {

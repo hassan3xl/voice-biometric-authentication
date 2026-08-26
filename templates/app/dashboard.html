@@ -327,7 +327,10 @@
     }
   }
 
+  let isStarting = false;
+
   async function toggleDashboardTestRecording() {
+    if (isStarting) return;
     if (!voiceRecorder) {
       voiceRecorder = new ApexVoiceRecorder();
     }
@@ -340,15 +343,22 @@
     const feedback = document.getElementById('dash-test-feedback');
 
     if (!isTestRecording) {
+      isStarting = true;
+      icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
+      statusText.innerHTML = '<span class="text-amber-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Opening microphone...</span>';
+
       try {
         await voiceRecorder.startRecording(canvas, vu);
         isTestRecording = true;
+        isStarting = false;
         btn.classList.add('recording');
         icon.className = 'fa-solid fa-stop text-2xl';
         statusText.innerHTML = '<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle text-[8px] animate-pulse mr-1"></i> Recording... Speak phrase clearly</span>';
         feedback.classList.add('hidden');
       } catch (err) {
-        alert(err.message || 'Microphone access error.');
+        isStarting = false;
+        icon.className = 'fa-solid fa-microphone text-2xl';
+        statusText.innerHTML = `<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${err.message || 'Mic access failed'}</span>`;
       }
       return;
     }

@@ -34,16 +34,30 @@ class ApexVoiceRecorder {
 
         if (!this.mediaStream) {
             try {
-                this.mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    const legacyGetUserMedia = navigator.getUserMedia ||
+                                               navigator.webkitGetUserMedia ||
+                                               navigator.mozGetUserMedia ||
+                                               navigator.msGetUserMedia;
+                    if (legacyGetUserMedia) {
+                        this.mediaStream = await new Promise((resolve, reject) => {
+                            legacyGetUserMedia.call(navigator, { audio: true }, resolve, reject);
+                        });
+                    } else {
+                        throw new Error("Microphone API (getUserMedia) requires HTTPS or localhost (127.0.0.1). Please open this site over a secure HTTPS connection or via http://localhost.");
                     }
-                });
+                } else {
+                    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        }
+                    });
+                }
             } catch (err) {
                 console.error("Microphone access failed:", err);
-                throw new Error("Microphone access denied or not available. Please allow microphone permissions in your browser settings.");
+                throw new Error(err.message || "Microphone access denied or not available. Please allow microphone permissions in your browser.");
             }
         }
 
