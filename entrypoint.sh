@@ -37,7 +37,7 @@ if [ "$DJANGO_ENV" = "production" ]; then
     exec uv run "$@"
   else
     echo "Starting Gunicorn..."
-    exec uv run gunicorn project.wsgi:application \
+    exec uv run gunicorn src.wsgi:application \
         --bind 0.0.0.0:${PORT:-8000} \
         --workers 1 \
         --threads 2 \
