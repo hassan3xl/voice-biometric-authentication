@@ -70,7 +70,7 @@ class VoiceprintProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='voice_profile')
     embedding_vector = models.JSONField(default=list, help_text="192-dimensional L2 normalized acoustic vector")
-    enrollment_passphrase = models.CharField(max_length=255, default="My voice is my secure key for voice biometri")
+    enrollment_passphrase = models.CharField(max_length=255, default="My voice is my secure key for voice biometric")
     sample_count = models.IntegerField(default=0)
     intra_variance_score = models.FloatField(default=0.0, help_text="Intra-speaker sample consistency variance")
     

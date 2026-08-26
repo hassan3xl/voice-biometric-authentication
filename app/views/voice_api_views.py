@@ -16,7 +16,7 @@ from app.voice_engine.verifier import VoiceBiometricVerifier
 
 @login_required
 @require_POST
-def voice_enroll_api(request):
+def voice_enroll_api(request):  
     """Multi-Pass Voiceprint Enrollment API.
     Captures acoustic sample, computes 192D embedding, and on final pass,
     fuses master template with cryptographic voiceprint hash.

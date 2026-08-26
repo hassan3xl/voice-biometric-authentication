@@ -20,11 +20,11 @@ User = get_user_model()
 
 # Pre-defined voice authentication dynamic passphrases
 DYNAMIC_PASSPHRASE_TEMPLATES = [
-    "My voice is my secure key for voice biometri",
-    "Voice Biometri authentication code {code}",
+    "My voice is my secure key for voice biometric",
+    "Voice Biometric authentication code {code}",
     "Authorize biometric voice session for user {account_suffix}",
-    "Voice Biometri acoustic token {code} verified",
-    "Confirm secure biometric identity clearance for voice biometri",
+    "Voice Biometric acoustic token {code} verified",
+    "Confirm secure biometric identity clearance for voice biometric",
 ]
 
 

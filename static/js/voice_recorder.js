@@ -1,7 +1,8 @@
 /**
  * Apex Voice Biometric Web Audio Recording Engine.
  * Captures uncompressed 16kHz 16-bit Mono PCM WAV audio directly in browser
- * with real-time oscilloscope waveform, frequency spectrum, and VU meter.
+ * with linear downsampling, cross-device AudioContext compatibility,
+ * and real-time visualizers.
  */
 
 class ApexVoiceRecorder {
@@ -13,34 +14,66 @@ class ApexVoiceRecorder {
         this.processorNode = null;
         this.pcmData = [];
         this.isRecording = false;
-        this.sampleRate = 16000;
+        this.targetSampleRate = 16000;
         this.animFrameId = null;
         this.speechRecognizer = null;
         this.transcript = '';
     }
 
     /**
-     * Initializes microphone stream and Web Audio nodes.
+     * Initializes microphone stream and Web Audio nodes safely across desktop & mobile browsers.
      */
     async init() {
-        if (this.mediaStream) return;
+        // Clean up previous stream if inactive
+        if (this.mediaStream) {
+            const tracks = this.mediaStream.getAudioTracks();
+            if (tracks.length > 0 && tracks[0].readyState !== 'live') {
+                this.mediaStream = null;
+            }
+        }
 
-        try {
-            this.mediaStream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    channelCount: 1,
-                    sampleRate: { ideal: 16000 },
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
-            });
+        if (!this.mediaStream) {
+            try {
+                this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+            } catch (err) {
+                console.error("Microphone access failed:", err);
+                throw new Error("Microphone access denied or not available. Please allow microphone permissions in your browser settings.");
+            }
+        }
 
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioCtx({ sampleRate: this.sampleRate });
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+            throw new Error("Web Audio API is not supported in this browser.");
+        }
 
-            // Initialize Web Speech Recognition if available for challenge alignment
-            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        if (!this.audioContext || this.audioContext.state === 'closed') {
+            try {
+                // Try 16kHz explicit rate first
+                this.audioContext = new AudioCtx({ sampleRate: this.targetSampleRate });
+            } catch (e) {
+                // Fallback to hardware default rate (e.g., 44100 / 48000 Hz)
+                this.audioContext = new AudioCtx();
+            }
+        }
+
+        // Resume AudioContext if suspended (critical for mobile browser user gestures)
+        if (this.audioContext.state === 'suspended') {
+            try {
+                await this.audioContext.resume();
+            } catch (e) {
+                console.warn("AudioContext resume failed:", e);
+            }
+        }
+
+        // Initialize Web Speech Recognition if available
+        if (!this.speechRecognizer && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+            try {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 this.speechRecognizer = new SpeechRecognition();
                 this.speechRecognizer.continuous = true;
@@ -54,10 +87,9 @@ class ApexVoiceRecorder {
                     }
                     this.transcript = fullText.trim();
                 };
+            } catch (e) {
+                console.warn("SpeechRecognition init failed:", e);
             }
-        } catch (err) {
-            console.error("Microphone access failed:", err);
-            throw new Error("Microphone access denied or not available. Please allow mic permissions in your browser.");
         }
     }
 
@@ -66,9 +98,6 @@ class ApexVoiceRecorder {
      */
     async startRecording(canvasElement = null, vuMeterElement = null) {
         await this.init();
-        if (this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
-        }
 
         this.pcmData = [];
         this.transcript = '';
@@ -77,9 +106,7 @@ class ApexVoiceRecorder {
         if (this.speechRecognizer) {
             try {
                 this.speechRecognizer.start();
-            } catch (e) {
-                // Ignore if already active
-            }
+            } catch (e) {}
         }
 
         this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
@@ -87,7 +114,6 @@ class ApexVoiceRecorder {
         this.analyserNode.fftSize = 512;
         this.analyserNode.smoothingTimeConstant = 0.8;
 
-        // Buffer size 4096 gives smooth frame collection
         const bufferSize = 4096;
         this.processorNode = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
 
@@ -101,14 +127,13 @@ class ApexVoiceRecorder {
         this.analyserNode.connect(this.processorNode);
         this.processorNode.connect(this.audioContext.destination);
 
-        // Start live visualizer loop
         if (canvasElement || vuMeterElement) {
             this.renderVisualizer(canvasElement, vuMeterElement);
         }
     }
 
     /**
-     * Stops recording and encodes PCM samples into 16kHz 16-bit WAV base64.
+     * Stops recording, downsamples PCM to 16kHz, and encodes into WAV base64.
      */
     async stopRecording() {
         if (!this.isRecording) return null;
@@ -126,15 +151,27 @@ class ApexVoiceRecorder {
         }
 
         if (this.processorNode) {
-            this.processorNode.disconnect();
-            this.analyserNode.disconnect();
-            this.sourceNode.disconnect();
+            try {
+                this.processorNode.disconnect();
+                this.analyserNode.disconnect();
+                this.sourceNode.disconnect();
+            } catch (e) {}
         }
 
-        // Merge float chunks
+        // Release stream tracks so hardware microphone light turns off
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => track.stop());
+            this.mediaStream = null;
+        }
+
+        // Merge raw float32 chunks
         let totalSamples = 0;
         for (let i = 0; i < this.pcmData.length; i++) {
             totalSamples += this.pcmData[i].length;
+        }
+
+        if (totalSamples === 0) {
+            return null;
         }
 
         const mergedFloat32 = new Float32Array(totalSamples);
@@ -144,8 +181,11 @@ class ApexVoiceRecorder {
             offset += this.pcmData[i].length;
         }
 
-        const duration = totalSamples / this.sampleRate;
-        const wavBlob = this.encodeWAV(mergedFloat32, this.sampleRate);
+        const nativeSampleRate = this.audioContext ? this.audioContext.sampleRate : 16000;
+        const resampledData = this.resampleTo16kHz(mergedFloat32, nativeSampleRate);
+        const duration = resampledData.length / this.targetSampleRate;
+
+        const wavBlob = this.encodeWAV(resampledData, this.targetSampleRate);
         const base64Wav = await this.blobToBase64(wavBlob);
 
         return {
@@ -157,7 +197,30 @@ class ApexVoiceRecorder {
     }
 
     /**
-     * Encodes Float32 PCM array into canonical 16-bit Mono WAV Blob.
+     * Linear interpolation resampler to convert arbitrary audioContext sampleRate down to 16,000 Hz.
+     */
+    resampleTo16kHz(float32Array, inputSampleRate) {
+        if (inputSampleRate === this.targetSampleRate || !inputSampleRate) {
+            return float32Array;
+        }
+
+        const ratio = inputSampleRate / this.targetSampleRate;
+        const newLength = Math.round(float32Array.length / ratio);
+        const result = new Float32Array(newLength);
+
+        for (let i = 0; i < newLength; i++) {
+            const originIndex = i * ratio;
+            const index1 = Math.floor(originIndex);
+            const index2 = Math.min(index1 + 1, float32Array.length - 1);
+            const weight = originIndex - index1;
+            result[i] = float32Array[index1] * (1 - weight) + float32Array[index2] * weight;
+        }
+
+        return result;
+    }
+
+    /**
+     * Encodes Float32 PCM array into 16-bit Mono WAV Blob.
      */
     encodeWAV(samples, sampleRate) {
         const buffer = new ArrayBuffer(44 + samples.length * 2);
@@ -179,9 +242,9 @@ class ApexVoiceRecorder {
         view.setUint16(22, 1, true);
         /* sample rate */
         view.setUint32(24, sampleRate, true);
-        /* byte rate (sample rate * block align) */
+        /* byte rate */
         view.setUint32(28, sampleRate * 2, true);
-        /* block align (channel count * bytes per sample) */
+        /* block align */
         view.setUint16(32, 2, true);
         /* bits per sample */
         view.setUint16(34, 16, true);
@@ -249,28 +312,33 @@ class ApexVoiceRecorder {
 
             // Draw Canvas Visualizer
             if (ctx && canvas) {
+                // Handle dynamic screen width / high DPI resizing
+                const rect = canvas.getBoundingClientRect();
+                if (rect.width > 0 && canvas.width !== Math.floor(rect.width)) {
+                    canvas.width = Math.floor(rect.width);
+                }
                 const width = canvas.width;
                 const height = canvas.height;
 
-                ctx.fillStyle = 'rgba(7, 11, 20, 0.4)';
+                ctx.fillStyle = 'rgba(7, 11, 20, 0.5)';
                 ctx.fillRect(0, 0, width, height);
 
-                // Draw Frequency Spectrum Bars in Background
+                // Draw Frequency Spectrum Bars
                 const numBars = 32;
                 const barWidth = width / numBars;
                 for (let i = 0; i < numBars; i++) {
                     const barHeight = (freqData[i * 2] / 255) * (height * 0.7);
                     const grad = ctx.createLinearGradient(0, height, 0, height - barHeight);
-                    grad.addColorStop(0, 'rgba(16, 185, 129, 0.15)');
-                    grad.addColorStop(1, 'rgba(6, 182, 212, 0.35)');
+                    grad.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+                    grad.addColorStop(1, 'rgba(6, 182, 212, 0.45)');
                     ctx.fillStyle = grad;
-                    ctx.fillRect(i * barWidth, height - barHeight, barWidth - 2, barHeight);
+                    ctx.fillRect(i * barWidth, height - barHeight, Math.max(1, barWidth - 2), barHeight);
                 }
 
-                // Draw Oscilloscope Glowing Waveform in Foreground
+                // Draw Oscilloscope Glowing Waveform
                 ctx.lineWidth = 2.5;
                 ctx.strokeStyle = '#10b981';
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 8;
                 ctx.shadowColor = '#10b981';
 
                 ctx.beginPath();
@@ -291,7 +359,7 @@ class ApexVoiceRecorder {
 
                 ctx.lineTo(width, height / 2);
                 ctx.stroke();
-                ctx.shadowBlur = 0; // Reset
+                ctx.shadowBlur = 0;
             }
         };
 
@@ -299,5 +367,4 @@ class ApexVoiceRecorder {
     }
 }
 
-// Global instance helper
 window.ApexVoiceRecorder = ApexVoiceRecorder;

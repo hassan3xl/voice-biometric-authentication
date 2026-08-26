@@ -40,9 +40,9 @@ def voice_vault_view(request):
 
     # Passphrase sequence for 3-pass enrollment
     enrollment_passes = [
-        {'pass_num': 1, 'title': 'Master Security Passphrase', 'phrase': 'My voice is my secure key for voice biometri'},
+        {'pass_num': 1, 'title': 'Master Security Passphrase', 'phrase': 'My voice is my secure key for voice biometric'},
         {'pass_num': 2, 'title': 'Numeric Cadence Verification', 'phrase': 'Authorize biometric voice access for user profile'},
-        {'pass_num': 3, 'title': 'Acoustic Liveness Confirmation', 'phrase': 'Voice Biometri identity verified and sealed'},
+        {'pass_num': 3, 'title': 'Acoustic Liveness Confirmation', 'phrase': 'Voice Biometric identity verified and sealed'},
     ]
 
     recent_samples = voice_profile.samples.all()
