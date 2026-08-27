@@ -27,9 +27,9 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
-    'cloudinary_storage',
     'whitenoise.runserver_nostatic',
     'django.contrib.staticfiles',
+    'cloudinary_storage',
     'cloudinary',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -83,11 +83,14 @@ STORAGES = {
     
     # Static: Serves static files reliably in production using WhiteNoise
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.ManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
 WHITENOISE_MANIFEST_STRICT = False
+
+# Backward compatibility for django-cloudinary-storage collectstatic command in Django 5+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 STORAGE_BACKEND = 'django.core.files.storage.FileSystemStorage'
 

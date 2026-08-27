@@ -16,6 +16,8 @@ wheels/
 *.sqlite3
 .env.**
 # Environment files
+staticfiles/
+media/
 .env
 .env.*
 !.env.example
