@@ -92,7 +92,7 @@
 
         <!-- Touch-Friendly Recording Button -->
         <div class="text-center py-2">
-          <button type="button" id="enroll-record-btn" onclick="toggleEnrollmentRecording()" class="voice-record-btn touch-manipulation">
+          <button type="button" id="enroll-record-btn" class="voice-record-btn touch-manipulation">
             <i id="enroll-record-icon" class="fa-solid fa-microphone text-2xl"></i>
           </button>
           <p id="enroll-status-text" class="text-xs font-semibold text-slate-300 mt-3">
@@ -196,7 +196,10 @@
 <script>
   let voiceRecorder;
   let isRecording = false;
-  let currentPass = 1;
+  let isProcessing = false;
+
+  const existingSampleCount = {{ recent_samples.count|default:0 }};
+  let currentPass = Math.min(existingSampleCount + 1, 3);
 
   const passphrases = [
     "My voice is my secure key for voice biometric",
@@ -204,11 +207,10 @@
     "Voice Biometric identity verified and sealed"
   ];
 
-  let isEnrollStarting = false;
-
   document.addEventListener('DOMContentLoaded', () => {
     voiceRecorder = new ApexVoiceRecorder();
-    
+    updatePassUI(currentPass);
+
     const enrollBtn = document.getElementById('enroll-record-btn');
     if (enrollBtn) {
       enrollBtn.addEventListener('click', (e) => {
@@ -218,8 +220,39 @@
     }
   });
 
+  function updatePassUI(passNum) {
+    const passIndicator = document.getElementById('current-pass-num');
+    if (passIndicator) passIndicator.innerText = passNum;
+
+    const phraseDisplay = document.getElementById('enrollment-phrase-display');
+    if (phraseDisplay) phraseDisplay.innerText = `"${passphrases[passNum - 1]}"`;
+
+    const statusText = document.getElementById('enroll-status-text');
+    if (statusText && !isRecording) {
+      statusText.innerText = `Tap Microphone to Speak Pass ${passNum}`;
+    }
+
+    for (let i = 1; i <= 3; i++) {
+      const stepCard = document.getElementById(`step-card-${i}`);
+      const stepStatus = document.getElementById(`step-status-${i}`);
+      if (!stepCard || !stepStatus) continue;
+
+      if (i < passNum || (existingSampleCount >= 3 && i <= 3)) {
+        stepCard.className = 'p-3 rounded-2xl border bg-emerald-950/80 border-emerald-500/60 text-xs font-mono';
+        stepStatus.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i> Captured';
+      } else if (i === passNum) {
+        stepCard.className = 'p-3 rounded-2xl border bg-emerald-950/50 border-emerald-500/40 text-xs font-mono';
+        stepStatus.innerHTML = '<i class="fa-solid fa-circle-dot text-emerald-400 animate-pulse"></i> Ready';
+      } else {
+        stepCard.className = 'p-3 rounded-2xl border bg-slate-950 border-slate-800 text-xs font-mono';
+        stepStatus.innerHTML = 'Pending';
+      }
+    }
+  }
+
   async function toggleEnrollmentRecording() {
-    if (isEnrollStarting) return;
+    if (isProcessing) return;
+
     if (!voiceRecorder) {
       voiceRecorder = new ApexVoiceRecorder();
     }
@@ -232,7 +265,7 @@
     const feedback = document.getElementById('enroll-feedback');
 
     if (!isRecording) {
-      isEnrollStarting = true;
+      isProcessing = true;
       icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
       statusText.innerHTML = '<span class="text-amber-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Opening microphone...</span>';
 
@@ -241,7 +274,7 @@
         isRecording = true;
         btn.classList.add('recording');
         icon.className = 'fa-solid fa-stop text-2xl';
-        statusText.innerHTML = `<span class="text-rose-400 animate-pulse font-bold"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Recording Pass ${currentPass}... Speak phrase</span>`;
+        statusText.innerHTML = `<span class="text-rose-400 animate-pulse font-bold"><i class="fa-solid fa-circle text-[8px] mr-1"></i> Recording Pass ${currentPass}... Speak phrase now</span>`;
         feedback.classList.add('hidden');
       } catch (err) {
         icon.className = 'fa-solid fa-microphone text-2xl';
@@ -249,31 +282,31 @@
         feedback.className = 'p-4 rounded-2xl text-xs font-mono space-y-1 border bg-rose-950/90 border-rose-500/60 text-rose-200 block';
         feedback.innerHTML = `<div><strong class="text-rose-300"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Microphone Alert:</strong> ${err.message || "Mic access denied"}</div>`;
       } finally {
-        isEnrollStarting = false;
+        isProcessing = false;
       }
     } else {
+      isProcessing = true;
       isRecording = false;
       btn.classList.remove('recording');
       icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
       statusText.innerHTML = `<span class="text-cyan-400"><i class="fa-solid fa-brain-circuit animate-spin mr-1"></i> Processing Pass ${currentPass} (MFCC 60D + 192D Embedding)...</span>`;
 
-      const audioResult = await voiceRecorder.stopRecording();
-      if (!audioResult) {
-        icon.className = 'fa-solid fa-microphone text-2xl';
-        statusText.innerText = 'Recording failed. Please try again.';
-        return;
-      }
-
-      const phrase = passphrases[currentPass - 1];
-
-      const formData = new FormData();
-      formData.append('pass_index', currentPass);
-      formData.append('audio_data', audioResult.base64Wav);
-      formData.append('passphrase', phrase);
-
-      const csrftoken = '{{ csrf_token }}';
-
       try {
+        const audioResult = await voiceRecorder.stopRecording();
+        if (!audioResult) {
+          icon.className = 'fa-solid fa-microphone text-2xl';
+          statusText.innerText = 'Recording failed. Please try again.';
+          return;
+        }
+
+        const phrase = passphrases[currentPass - 1];
+        const formData = new FormData();
+        formData.append('pass_index', currentPass);
+        formData.append('audio_data', audioResult.base64Wav);
+        formData.append('passphrase', phrase);
+
+        const csrftoken = '{{ csrf_token }}';
+
         const response = await fetch("{% url 'app:api_voice_enroll' %}", {
           method: 'POST',
           headers: { 'X-CSRFToken': csrftoken },
@@ -305,26 +338,19 @@
             }, 1800);
           } else {
             currentPass += 1;
-            document.getElementById('current-pass-num').innerText = currentPass;
-            document.getElementById('enrollment-phrase-display').innerText = `"${passphrases[currentPass - 1]}"`;
-            
-            const nextCard = document.getElementById(`step-card-${currentPass}`);
-            const nextStatus = document.getElementById(`step-status-${currentPass}`);
-            if (nextCard) {
-              nextCard.className = 'p-3 rounded-2xl border bg-emerald-950/50 border-emerald-500/40 text-xs font-mono';
-              nextStatus.innerHTML = '<i class="fa-solid fa-circle-dot text-emerald-400 animate-pulse"></i> Ready';
-            }
-
-            statusText.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check mr-1"></i> Pass ${currentPass - 1} Saved! Ready for Pass ${currentPass}</span>`;
+            updatePassUI(currentPass);
+            statusText.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check mr-1"></i> Pass ${currentPass - 1} Saved! Tap to speak Pass ${currentPass}</span>`;
           }
         } else {
-          statusText.innerHTML = '<span class="text-rose-400 font-bold">Pass Rejected</span>';
+          statusText.innerHTML = `<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle-xmark mr-1"></i> Pass Rejected</span>`;
           feedback.className = 'p-4 rounded-2xl text-xs font-mono space-y-1.5 border bg-rose-950/80 border-rose-500/50 text-rose-200 block';
-          feedback.innerHTML = `<div>${resData.message}</div>`;
+          feedback.innerHTML = `<div>${resData.message || 'Pass rejected.'}</div>`;
         }
       } catch (err) {
         icon.className = 'fa-solid fa-microphone text-2xl';
         statusText.innerText = 'Network error during enrollment.';
+      } finally {
+        isProcessing = false;
       }
     }
   }

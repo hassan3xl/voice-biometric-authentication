@@ -99,8 +99,11 @@
 <script>
   const voiceRecorder = new ApexVoiceRecorder();
   let isRecording = false;
+  let isStepUpProcessing = false;
 
   async function toggleStepUpRecording() {
+    if (isStepUpProcessing) return;
+
     const btn = document.getElementById('auth-record-btn');
     const icon = document.getElementById('auth-record-icon');
     const statusText = document.getElementById('auth-status-text');
@@ -109,6 +112,7 @@
     const feedback = document.getElementById('auth-feedback');
 
     if (!isRecording) {
+      isStepUpProcessing = true;
       // Start Recording
       try {
         await voiceRecorder.startRecording(canvas, vu);
@@ -119,33 +123,35 @@
         feedback.classList.add('hidden');
       } catch (err) {
         alert(err.message || "Could not access microphone.");
+      } finally {
+        isStepUpProcessing = false;
       }
     } else {
+      isStepUpProcessing = true;
       // Stop Recording & Send Verification
       isRecording = false;
       btn.classList.remove('recording');
       icon.className = 'fa-solid fa-spinner fa-spin text-2xl text-white';
       statusText.innerHTML = '<span class="text-cyan-400"><i class="fa-solid fa-brain-circuit animate-spin mr-1"></i> Verifying 192D Voiceprint & Anti-Spoofing Liveness...</span>';
 
-      const audioResult = await voiceRecorder.stopRecording();
-      if (!audioResult) {
-        icon.className = 'fa-solid fa-microphone text-2xl';
-        statusText.innerText = 'Recording failed. Try again.';
-        return;
-      }
-
-      const rawChallenge = document.getElementById('challenge-display').innerText.replace(/^"|"$/g, '');
-
-      const formData = new FormData();
-      formData.append('transaction_id', '{{ transaction.transaction_id }}');
-      formData.append('audio_data', audioResult.base64Wav);
-      formData.append('challenge_phrase', rawChallenge);
-      formData.append('spoken_transcript', audioResult.transcript);
-
-      // CSRF token
-      const csrftoken = '{{ csrf_token }}';
-
       try {
+        const audioResult = await voiceRecorder.stopRecording();
+        if (!audioResult) {
+          icon.className = 'fa-solid fa-microphone text-2xl';
+          statusText.innerText = 'Recording failed. Try again.';
+          return;
+        }
+
+        const rawChallenge = document.getElementById('challenge-display').innerText.replace(/^"|"$/g, '');
+
+        const formData = new FormData();
+        formData.append('transaction_id', '{{ transaction.transaction_id }}');
+        formData.append('audio_data', audioResult.base64Wav);
+        formData.append('challenge_phrase', rawChallenge);
+        formData.append('spoken_transcript', audioResult.transcript);
+
+        const csrftoken = '{{ csrf_token }}';
+
         const response = await fetch("{% url 'app:api_voice_verify_step_up' %}", {
           method: 'POST',
           headers: {
@@ -186,6 +192,8 @@
       } catch (err) {
         icon.className = 'fa-solid fa-microphone text-2xl';
         statusText.innerText = 'Network error during step-up authorization.';
+      } finally {
+        isStepUpProcessing = false;
       }
     }
   }

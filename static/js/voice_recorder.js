@@ -115,6 +115,11 @@ class ApexVoiceRecorder {
      * Starts recording audio frames and rendering live visualizer on canvas.
      */
     async startRecording(canvasElement = null, vuMeterElement = null) {
+        if (this.isRecording) {
+            console.warn("ApexVoiceRecorder: startRecording called while already recording.");
+            return;
+        }
+
         await this.init();
 
         this.pcmData = [];

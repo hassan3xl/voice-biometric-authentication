@@ -327,10 +327,10 @@
     }
   }
 
-  let isStarting = false;
+  let isTestProcessing = false;
 
   async function toggleDashboardTestRecording() {
-    if (isStarting) return;
+    if (isTestProcessing) return;
     if (!voiceRecorder) {
       voiceRecorder = new ApexVoiceRecorder();
     }
@@ -343,7 +343,7 @@
     const feedback = document.getElementById('dash-test-feedback');
 
     if (!isTestRecording) {
-      isStarting = true;
+      isTestProcessing = true;
       icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
       statusText.innerHTML = '<span class="text-amber-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Opening microphone...</span>';
 
@@ -360,32 +360,33 @@
         feedback.className = 'mt-4 rounded-2xl border border-rose-500/50 bg-rose-950/80 p-4 text-xs font-mono text-rose-200 block';
         feedback.innerHTML = `<div><strong class="text-rose-300"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Microphone Alert:</strong> ${err.message || 'Mic access failed'}</div>`;
       } finally {
-        isStarting = false;
+        isTestProcessing = false;
       }
       return;
     }
 
+    isTestProcessing = true;
     isTestRecording = false;
     btn.classList.remove('recording');
     icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
     statusText.innerText = 'Extracting acoustic features & comparing voiceprint...';
 
-    const audioResult = await voiceRecorder.stopRecording();
-    if (!audioResult) {
-      icon.className = 'fa-solid fa-microphone text-2xl';
-      statusText.innerText = 'Recording failed. Try again.';
-      return;
-    }
-
-    const phrase = document.getElementById('dash-challenge-phrase').innerText.replace(/^"|"$/g, '');
-    const formData = new FormData();
-    formData.append('audio_data', audioResult.base64Wav);
-    formData.append('challenge_phrase', phrase);
-    formData.append('spoken_transcript', audioResult.transcript || '');
-
-    const csrftoken = '{{ csrf_token }}';
-
     try {
+      const audioResult = await voiceRecorder.stopRecording();
+      if (!audioResult) {
+        icon.className = 'fa-solid fa-microphone text-2xl';
+        statusText.innerText = 'Recording failed. Try again.';
+        return;
+      }
+
+      const phrase = document.getElementById('dash-challenge-phrase').innerText.replace(/^"|"$/g, '');
+      const formData = new FormData();
+      formData.append('audio_data', audioResult.base64Wav);
+      formData.append('challenge_phrase', phrase);
+      formData.append('spoken_transcript', audioResult.transcript || '');
+
+      const csrftoken = '{{ csrf_token }}';
+
       const response = await fetch("{% url 'app:api_voice_test_verify' %}", {
         method: 'POST',
         headers: { 'X-CSRFToken': csrftoken },
@@ -417,6 +418,8 @@
     } catch (err) {
       icon.className = 'fa-solid fa-microphone text-2xl';
       statusText.innerText = 'Network error during test verification.';
+    } finally {
+      isTestProcessing = false;
     }
   }
 
