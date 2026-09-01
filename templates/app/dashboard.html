@@ -1,320 +1,407 @@
-{% extends 'base.html' %}
+{% extends 'app/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard | voice biometric{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="space-y-6 sm:space-y-8">
-  
-  <!-- Top Header Hero Banner -->
-  <section class="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-5 sm:p-8 text-white shadow-2xl">
-    <div class="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
-    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between relative z-10">
-      <div class="max-w-3xl space-y-3">
-        <div class="inline-flex items-center gap-2 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-3.5 py-1 text-xs font-mono text-emerald-400">
-          <i class="fa-solid fa-waveform-lines"></i> voice biometric Demonstration & Verification Hub
-        </div>
-        <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-heading">
-          Welcome, {{ user.first_name|default:user.username }}
-        </h1>
-        <p class="text-xs sm:text-sm leading-relaxed text-slate-300">
-          <strong class="text-emerald-400 font-semibold">Project Topic:</strong> Design, Implementation, and Performance Evaluation of a Voice Biometric Authentication System for Digital Banking Security
-        </p>
-      </div>
+<div class="gap-stack-lg">
 
-      <!-- Quick Profile Status Badge Cards -->
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-3.5 sm:p-4 text-center min-w-[130px] flex-1 sm:flex-none shadow-lg">
-          <p class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Voice Profile</p>
-          <p class="mt-1 text-base font-bold font-mono {% if voice_profile.status == 'ACTIVE' %}text-emerald-400{% else %}text-amber-400{% endif %}">
-            {% if voice_profile.status == 'ACTIVE' %}Enrolled{% else %}Unenrolled{% endif %}
-          </p>
-          <p class="text-[10px] text-slate-400 mt-0.5">{{ voice_profile.get_status_display }}</p>
-        </div>
-
-        <div class="rounded-2xl border border-slate-700 bg-slate-800/80 p-3.5 sm:p-4 text-center min-w-[130px] flex-1 sm:flex-none shadow-lg">
-          <p class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Audit Events</p>
-          <p class="mt-1 text-base font-bold font-mono text-cyan-400">{{ verification_count }}</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">Live Verifications</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Key Biometric Metrics Cards -->
-  <section class="space-y-4">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+  <!-- Greeting + Voice Status -->
+  <div class="card card-glow">
+    <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
       <div>
-        <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2 font-heading">
-          <i class="fa-solid fa-chart-line text-emerald-400"></i> Core Biometric Performance Metrics
-        </h2>
-        <p class="text-xs text-slate-300">Empirical verification metrics evaluated on 800+ trial samples.</p>
-      </div>
-      <a href="{% url 'app:evaluation_dashboard' %}" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-950/60 px-3.5 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/60 transition self-start sm:self-auto">
-        <i class="fa-solid fa-flask"></i> Scientific Lab &rarr;
-      </a>
-    </div>
-
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 sm:p-4 text-center shadow-lg hover:border-emerald-500/50 transition">
-        <p class="text-[10px] sm:text-[11px] font-mono uppercase text-slate-400">Recognition Accuracy</p>
-        <h3 class="text-xl sm:text-2xl font-extrabold text-emerald-400 font-mono mt-1">98.5%</h3>
-        <p class="text-[10px] text-slate-400 mt-0.5">High Speaker Distinction</p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 sm:p-4 text-center shadow-lg hover:border-amber-500/50 transition">
-        <p class="text-[10px] sm:text-[11px] font-mono uppercase text-slate-400">False Acceptance (FAR)</p>
-        <h3 class="text-xl sm:text-2xl font-extrabold text-amber-400 font-mono mt-1">0.42%</h3>
-        <p class="text-[10px] text-slate-400 mt-0.5">Target: &lt; 1.0%</p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 sm:p-4 text-center shadow-lg hover:border-rose-500/50 transition">
-        <p class="text-[10px] sm:text-[11px] font-mono uppercase text-slate-400">False Rejection (FRR)</p>
-        <h3 class="text-xl sm:text-2xl font-extrabold text-rose-400 font-mono mt-1">1.15%</h3>
-        <p class="text-[10px] text-slate-400 mt-0.5">Low User Friction</p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 sm:p-4 text-center shadow-lg hover:border-cyan-500/50 transition">
-        <p class="text-[10px] sm:text-[11px] font-mono uppercase text-slate-400">Equal Error Rate (EER)</p>
-        <h3 class="text-xl sm:text-2xl font-extrabold text-cyan-400 font-mono mt-1">0.78%</h3>
-        <p class="text-[10px] text-slate-400 mt-0.5">Operating Point &theta; = 0.72</p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-900 p-3.5 sm:p-4 text-center shadow-lg hover:border-purple-500/50 transition col-span-2 sm:col-span-1">
-        <p class="text-[10px] sm:text-[11px] font-mono uppercase text-slate-400">Avg Response Time</p>
-        <h3 class="text-xl sm:text-2xl font-extrabold text-purple-400 font-mono mt-1">18.4 ms</h3>
-        <p class="text-[10px] text-slate-400 mt-0.5">Real-time Inference</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Interactive Voice Chamber: Enrollment & Verification -->
-  <section class="grid gap-6 lg:grid-cols-2">
-    
-    <!-- CHAMBER 1: Voice Enrollment Card -->
-    <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6 shadow-xl flex flex-col justify-between space-y-5">
-      <div>
-        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-950 text-emerald-400 border border-emerald-500/30">
-              <i class="fa-solid fa-microphone-lines text-lg"></i>
-            </div>
-            <div>
-              <h2 class="text-base sm:text-lg font-extrabold text-white font-heading">Voice Enrollment Studio</h2>
-              <p class="text-xs text-slate-400">60D MFCC + 192D Speaker Embeddings</p>
-            </div>
-          </div>
-          <span class="rounded-full px-3 py-1 text-xs font-mono font-semibold {% if voice_profile.status == 'ACTIVE' %}bg-emerald-950 text-emerald-300 border border-emerald-500/40{% else %}bg-amber-950 text-amber-300 border border-amber-500/40{% endif %}">
-            {% if voice_profile.status == 'ACTIVE' %}Vault Sealed{% else %}Needs Enrollment{% endif %}
-          </span>
+        <div style="font-size:18px;font-weight:700;color:var(--text);">
+          Hi, {{ user.first_name|default:user.username }} 👋
         </div>
-
-        <div class="mt-4 space-y-3">
-          {% if voice_profile.status == 'ACTIVE' %}
-            <div class="rounded-2xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-xs font-mono space-y-2 text-emerald-200">
-              <div class="flex items-center justify-between font-bold">
-                <span><i class="fa-solid fa-circle-check text-emerald-400 mr-1"></i> Active Master Voiceprint</span>
-                <span class="text-[10px] text-emerald-300">{{ voice_profile.sample_count }} Passes Fused</span>
-              </div>
-              <div class="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                <div><span class="text-slate-400">Intra Variance:</span> <strong class="text-emerald-300">{{ voice_profile.intra_variance_score|default:"0.042"|floatformat:3 }}</strong></div>
-                <div><span class="text-slate-400">Pitch F0:</span> <strong class="text-emerald-300">{{ voice_profile.baseline_f0_hz|default:"128.4" }} Hz</strong></div>
-              </div>
-              {% if voice_profile.voiceprint_hash %}
-              <div class="pt-1 text-[10px] truncate text-slate-400 border-t border-emerald-500/20">
-                <span class="font-bold text-emerald-300">SHA-256:</span> {{ voice_profile.voiceprint_hash }}
-              </div>
-              {% endif %}
-            </div>
-          {% else %}
-            <div class="rounded-2xl border border-amber-500/40 bg-amber-950/40 p-4 text-xs text-amber-200 space-y-1">
-              <p class="font-bold text-amber-300"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Voiceprint Profile Pending</p>
-              <p>Enroll 3 spoken passes to train your acoustic model and seal your voice vault.</p>
-            </div>
-          {% endif %}
-
-          <p class="text-xs text-slate-300 leading-relaxed">
-            Voice activity detection (VAD), silence trimming, SNR noise checking, and Mel-frequency filterbank features produce an encrypted biometric template.
-          </p>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+          Voice Biometric Authentication
         </div>
       </div>
-
-      <div class="pt-4 border-t border-slate-800 flex items-center justify-between flex-wrap gap-3">
-        <a href="{% url 'app:voice_vault' %}" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-500 shadow-md">
-          <i class="fa-solid fa-vault"></i> {% if voice_profile.status == 'ACTIVE' %}Manage / Re-train Vault{% else %}Start Voice Enrollment{% endif %}
-        </a>
+      <span class="badge {% if voice_profile.status == 'ACTIVE' %}badge-green{% else %}badge-amber{% endif %}">
         {% if voice_profile.status == 'ACTIVE' %}
-          <button type="button" onclick="resetVoiceVault()" class="text-xs text-rose-400 hover:text-rose-300 font-semibold transition">
-            <i class="fa-solid fa-arrows-rotate"></i> Reset Template
-          </button>
+          <i class="fa-solid fa-circle-check"></i> Enrolled
+        {% else %}
+          <i class="fa-solid fa-circle-exclamation"></i> Not Enrolled
         {% endif %}
-      </div>
-    </article>
-
-    <!-- CHAMBER 2: Voice Verification & Live Microphone Test -->
-    <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6 shadow-xl flex flex-col justify-between space-y-5">
-      <div>
-        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-cyan-950 text-cyan-400 border border-cyan-500/30">
-              <i class="fa-solid fa-shield-halved text-lg"></i>
-            </div>
-            <div>
-              <h2 class="text-base sm:text-lg font-extrabold text-white font-heading">Live Voice Verification Test</h2>
-              <p class="text-xs text-slate-400">Test microphone voice against enrolled voiceprint</p>
-            </div>
-          </div>
-          <button type="button" onclick="refreshDashboardChallenge()" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300">
-            <i class="fa-solid fa-arrows-rotate"></i> Refresh
-          </button>
-        </div>
-
-        <!-- Dynamic Challenge Phrase -->
-        <div class="mt-4 rounded-2xl bg-slate-950 p-4 border border-slate-800 text-white space-y-2">
-          <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-            <span>Dynamic Challenge Phrase</span>
-            <span class="text-emerald-400 font-bold">VAD & PAD Active</span>
-          </div>
-          <p id="dash-challenge-phrase" class="font-mono text-xs sm:text-sm font-bold text-emerald-300">
-            "{{ challenge_phrase }}"
-          </p>
-        </div>
-
-        <!-- Visualizer & VU Meter -->
-        <div class="mt-3 space-y-2">
-          <canvas id="dash-test-visualizer" class="h-20 w-full rounded-2xl border border-slate-800 bg-slate-950" width="500" height="85"></canvas>
-          <div class="h-2 overflow-hidden rounded-full bg-slate-800">
-            <div id="dash-test-vu" class="h-full w-0 bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-all duration-75"></div>
-          </div>
-        </div>
-
-        <!-- Touch-Friendly Test Trigger Button -->
-        <div class="mt-5 text-center">
-          <button type="button" id="dash-test-record-btn" onclick="toggleDashboardTestRecording()" class="voice-record-btn touch-manipulation">
-            <i id="dash-test-record-icon" class="fa-solid fa-microphone text-2xl"></i>
-          </button>
-          <p id="dash-test-status" class="mt-3 text-xs font-semibold text-slate-300">
-            Tap microphone to test voice authentication
-          </p>
-        </div>
-
-        <!-- Real-Time Verification Result Feedback -->
-        <div id="dash-test-feedback" class="hidden mt-4 rounded-2xl border p-4 text-xs font-mono space-y-1.5"></div>
-      </div>
-
-      <div class="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between flex-wrap gap-2">
-        <span>Operating Threshold: <strong class="text-emerald-400">&theta; = 0.72</strong></span>
-        <span>Anti-Spoofing: <strong class="text-cyan-400">ISO/IEC 30107</strong></span>
-      </div>
-    </article>
-
-  </section>
-
-  <!-- Functional Requirements Compliance Matrix -->
-  <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6 shadow-xl space-y-4">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
-      <div>
-        <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2 font-heading">
-          <i class="fa-solid fa-list-check text-emerald-400"></i> Architectural Compliance (FR-1 to FR-4)
-        </h2>
-        <p class="text-xs text-slate-300">Modules implementing speech capture, feature extraction, storage, and matching.</p>
-      </div>
-      <span class="rounded-full bg-emerald-950 border border-emerald-500/40 px-3 py-1 text-xs font-mono font-bold text-emerald-300 self-start sm:self-auto">
-        100% Compliant
       </span>
     </div>
+  </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs">
-      <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-2">
-        <div class="flex items-center gap-2 font-bold text-white">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> FR-1: Speech Capture
-        </div>
-        <p class="text-slate-300 text-[11px] leading-relaxed">
-          PCM microphone capture, 16kHz resampling, noise reduction, and Voice Activity Detection (VAD).
-        </p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-2">
-        <div class="flex items-center gap-2 font-bold text-white">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> FR-2: Feature Extraction
-        </div>
-        <p class="text-slate-300 text-[11px] leading-relaxed">
-          60-D MFCC (Static + Delta + Delta-Delta) feature vectors & fundamental pitch dynamics.
-        </p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-2">
-        <div class="flex items-center gap-2 font-bold text-white">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> FR-3: Template Storage
-        </div>
-        <p class="text-slate-300 text-[11px] leading-relaxed">
-          Encrypted database storage of L2-normalized embeddings with SHA-256 voiceprint integrity hashes.
-        </p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-2">
-        <div class="flex items-center gap-2 font-bold text-white">
-          <i class="fa-solid fa-circle-check text-emerald-400"></i> FR-4: Voice Authentication
-        </div>
-        <p class="text-slate-300 text-[11px] leading-relaxed">
-          Cosine similarity verification with sigmoid confidence posterior scoring and ISO/IEC Liveness PAD.
-        </p>
-      </div>
+  {% if voice_profile.status == 'ACTIVE' %}
+  <!-- Voiceprint Info -->
+  <div class="vp-info enrolled">
+    <div class="vp-info-title">
+      <i class="fa-solid fa-fingerprint"></i> Active Voiceprint
     </div>
-  </section>
+    <div class="vp-meta">
+      <div><span>Samples:</span> <strong>{{ voice_profile.sample_count }}</strong></div>
+      <div><span>Pitch:</span> <strong>{{ voice_profile.baseline_f0_hz|default:"128.4"|floatformat:1 }} Hz</strong></div>
+      <div><span>Variance:</span> <strong>{{ voice_profile.intra_variance_score|default:"0.042"|floatformat:3 }}</strong></div>
+      <div><span>Jitter:</span> <strong>{{ voice_profile.baseline_jitter|default:"0.78"|floatformat:2 }}%</strong></div>
+    </div>
+    {% if voice_profile.voiceprint_hash %}
+    <div class="vp-hash">
+      <strong style="color:var(--green);">SHA-256:</strong> {{ voice_profile.voiceprint_hash }}
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <!-- Enrollment Prompt -->
+  <div class="vp-info pending">
+    <div class="vp-info-title">
+      <i class="fa-solid fa-triangle-exclamation"></i> Voiceprint Not Enrolled
+    </div>
+    <div style="font-size:12px;">Complete the 3-pass voice enrollment below to activate your biometric profile.</div>
+  </div>
+  {% endif %}
 
-  <!-- Audit Trail -->
-  <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6 shadow-xl space-y-4">
-    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+  <!-- ============ ENROLLMENT SECTION ============ -->
+  <div class="card card-glow">
+    <div class="card-body-lg gap-stack">
+      <div class="section-header">
+        <div>
+          <div class="section-title">
+            <i class="fa-solid fa-microphone-lines"></i>
+            {% if voice_profile.status == 'ACTIVE' %}Re-Enroll Voice{% else %}Voice Enrollment{% endif %}
+          </div>
+          <div class="section-subtitle">Speak each phrase to train your voiceprint</div>
+        </div>
+        <span class="badge badge-green" style="font-family:var(--mono);font-size:10px;">
+          Pass <span id="current-pass-num">1</span>/3
+        </span>
+      </div>
+
+      <!-- Pass Steps -->
+      <div class="pass-steps">
+        <div id="step-card-1" class="pass-step active">
+          <div class="pass-num">PASS 1</div>
+          <div class="pass-label">Key Phrase</div>
+          <div id="step-status-1" class="pass-status"><i class="fa-solid fa-circle-dot" style="color:var(--green);"></i> Ready</div>
+        </div>
+        <div id="step-card-2" class="pass-step">
+          <div class="pass-num">PASS 2</div>
+          <div class="pass-label">Cadence</div>
+          <div id="step-status-2" class="pass-status">Pending</div>
+        </div>
+        <div id="step-card-3" class="pass-step">
+          <div class="pass-num">PASS 3</div>
+          <div class="pass-label">Liveness</div>
+          <div id="step-status-3" class="pass-status">Pending</div>
+        </div>
+      </div>
+
+      <!-- Current Phrase -->
+      <div class="phrase-box">
+        <div class="phrase-label">Speak this phrase:</div>
+        <div id="enrollment-phrase-display" class="phrase-text">"My voice is my secure key for voice biometric"</div>
+      </div>
+
+      <!-- Visualizer + VU -->
       <div>
-        <h2 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2 font-heading">
-          <i class="fa-solid fa-history text-slate-400"></i> Live Biometric Audit Trail
-        </h2>
-        <p class="text-xs text-slate-300">Real-time log of voice authentication trials.</p>
+        <canvas id="enroll-visualizer" height="70" width="600"></canvas>
+        <div class="vu-bar mt-2">
+          <div id="enroll-vu" class="vu-fill"></div>
+        </div>
       </div>
-      <a href="{% url 'app:audit_logs' %}" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300">
-        View All &rarr;
-      </a>
-    </div>
 
-    <div id="dashboard-audit-list" class="space-y-3">
-      {% for log in recent_audit_logs %}
-        <div class="rounded-2xl border border-slate-800 bg-slate-950 p-3.5 sm:p-4 text-xs font-mono">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2 font-bold text-white">
-              <span class="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{{ log.get_attempt_type_display }}</span>
-              <span class="text-slate-200">"{{ log.challenge_phrase|truncatechars:35 }}"</span>
-            </div>
-            <span class="rounded-full px-3 py-1 text-[10px] font-bold {% if log.decision == 'ACCEPTED' %}bg-emerald-950 text-emerald-300 border border-emerald-500/40{% elif log.decision == 'SPOOF_DETECTED' %}bg-rose-950 text-rose-300 border border-rose-500/40{% else %}bg-amber-950 text-amber-300 border border-amber-500/40{% endif %}">
+      <!-- Record Button -->
+      <div style="text-align:center;padding:8px 0;">
+        <button type="button" id="enroll-record-btn" class="voice-record-btn">
+          <i id="enroll-record-icon" class="fa-solid fa-microphone"></i>
+        </button>
+        <p id="enroll-status-text" class="status-text">Tap to speak Pass 1</p>
+      </div>
+
+      <!-- Feedback -->
+      <div id="enroll-feedback" class="feedback-panel" style="display:none;"></div>
+
+      {% if voice_profile.status == 'ACTIVE' %}
+      <div style="text-align:center;">
+        <button type="button" onclick="resetVoiceVault()" class="btn-danger-text">
+          <i class="fa-solid fa-arrows-rotate"></i> Reset & Re-enroll
+        </button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if voice_profile.status == 'ACTIVE' %}
+  <!-- ============ VERIFICATION TEST ============ -->
+  <div class="card">
+    <div class="card-body-lg gap-stack">
+      <div class="section-header">
+        <div>
+          <div class="section-title">
+            <i class="fa-solid fa-shield-halved" style="color:var(--cyan);"></i> Test Verification
+          </div>
+          <div class="section-subtitle">Verify your voice against enrolled voiceprint</div>
+        </div>
+        <button type="button" onclick="refreshDashboardChallenge()" class="btn btn-outline btn-sm">
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+      </div>
+
+      <!-- Challenge Phrase -->
+      <div class="phrase-box">
+        <div class="phrase-label">Challenge Phrase</div>
+        <div id="dash-challenge-phrase" class="phrase-text">"{{ challenge_phrase }}"</div>
+      </div>
+
+      <!-- Visualizer + VU -->
+      <div>
+        <canvas id="dash-test-visualizer" height="70" width="500"></canvas>
+        <div class="vu-bar mt-2">
+          <div id="dash-test-vu" class="vu-fill"></div>
+        </div>
+      </div>
+
+      <!-- Record Button -->
+      <div style="text-align:center;padding:8px 0;">
+        <button type="button" id="dash-test-record-btn" onclick="toggleDashboardTestRecording()" class="voice-record-btn">
+          <i id="dash-test-record-icon" class="fa-solid fa-microphone"></i>
+        </button>
+        <p id="dash-test-status" class="status-text">Tap to test voice authentication</p>
+      </div>
+
+      <!-- Feedback -->
+      <div id="dash-test-feedback" class="feedback-panel" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ============ SECURITY TIER ============ -->
+  <div class="card">
+    <div class="card-body gap-stack">
+      <div class="section-title">
+        <i class="fa-solid fa-lock" style="color:var(--amber);"></i> Security Level
+      </div>
+
+      <form method="POST" action="{% url 'app:voice_vault' %}">
+        {% csrf_token %}
+        <input type="hidden" name="update_security_level" value="1">
+
+        <label class="tier-option">
+          <input type="radio" name="security_level" value="STANDARD" {% if user.security_level == 'STANDARD' %}checked{% endif %}>
+          <div>
+            <div class="tier-title">Standard (θ = 0.72)</div>
+            <div class="tier-desc">Balanced for everyday use</div>
+          </div>
+        </label>
+        <label class="tier-option">
+          <input type="radio" name="security_level" value="HIGH" {% if user.security_level == 'HIGH' %}checked{% endif %}>
+          <div>
+            <div class="tier-title" style="color:#34d399;">High (θ = 0.80)</div>
+            <div class="tier-desc">Recommended security baseline</div>
+          </div>
+        </label>
+        <label class="tier-option">
+          <input type="radio" name="security_level" value="STRICT" {% if user.security_level == 'STRICT' %}checked{% endif %}>
+          <div>
+            <div class="tier-title">Strict (θ = 0.85)</div>
+            <div class="tier-desc">Zero-trust forensic level</div>
+          </div>
+        </label>
+
+        <button type="submit" class="btn btn-green btn-block mt-3">Save Security Level</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ RECENT AUDIT LOG ============ -->
+  <div class="card">
+    <div class="card-body gap-stack">
+      <div class="section-header">
+        <div class="section-title">
+          <i class="fa-solid fa-clock-rotate-left" style="color:var(--text-dim);"></i> Recent Activity
+        </div>
+        <a href="{% url 'app:audit_logs' %}" class="link-green" style="font-size:12px;">View All →</a>
+      </div>
+
+      <div id="dashboard-audit-list">
+        {% for log in recent_audit_logs %}
+        <div class="audit-item">
+          <div class="audit-top">
+            <div class="audit-phrase">"{{ log.challenge_phrase|truncatechars:30 }}"</div>
+            <span class="badge {% if log.decision == 'ACCEPTED' %}badge-green{% elif log.decision == 'SPOOF_DETECTED' %}badge-red{% else %}badge-amber{% endif %}" style="font-size:10px;">
               {{ log.decision }}
             </span>
           </div>
-          <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-slate-400 text-[11px]">
-            <div>Similarity: <strong class="text-slate-200">{{ log.similarity_score|floatformat:3 }}</strong></div>
-            <div>Confidence: <strong class="text-slate-200">{{ log.confidence_score|floatformat:1 }}%</strong></div>
-            <div>Liveness: <strong class="text-slate-200">{{ log.liveness_score|floatformat:2 }}</strong></div>
-            <div>Latency: <strong class="text-slate-200">{{ log.latency_ms|floatformat:1 }} ms</strong></div>
+          <div class="audit-metrics">
+            <div>Sim: <strong>{{ log.similarity_score|floatformat:3 }}</strong></div>
+            <div>Conf: <strong>{{ log.confidence_score|floatformat:1 }}%</strong></div>
+            <div>Live: <strong>{{ log.liveness_score|floatformat:2 }}</strong></div>
+            <div>Time: <strong>{{ log.latency_ms|floatformat:1 }}ms</strong></div>
           </div>
         </div>
-      {% empty %}
-        <div class="rounded-2xl border border-dashed border-slate-800 bg-slate-950 p-6 text-center text-xs text-slate-400">
-          No voice verification trials recorded yet. Use the Live Voice Verification Test tool above to perform a trial.
+        {% empty %}
+        <div class="empty-state">
+          No verification attempts yet. Use the test above to try.
         </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
     </div>
-  </section>
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
   let voiceRecorder;
+  let isRecording = false;
+  let isProcessing = false;
   let isTestRecording = false;
+  let isTestProcessing = false;
+
+  const existingSampleCount = {{ voice_profile.sample_count|default:0 }};
+  let currentPass = Math.min(existingSampleCount + 1, 3);
+
+  const passphrases = [
+    "My voice is my secure key for voice biometric",
+    "Authorize biometric voice access for user profile",
+    "Voice Biometric identity verified and sealed"
+  ];
 
   document.addEventListener('DOMContentLoaded', () => {
     voiceRecorder = new ApexVoiceRecorder();
+    updatePassUI(currentPass);
+
+    const enrollBtn = document.getElementById('enroll-record-btn');
+    if (enrollBtn) {
+      enrollBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleEnrollmentRecording();
+      });
+    }
   });
 
+  function updatePassUI(passNum) {
+    const el = document.getElementById('current-pass-num');
+    if (el) el.innerText = passNum;
+
+    const phraseDisplay = document.getElementById('enrollment-phrase-display');
+    if (phraseDisplay) phraseDisplay.innerText = `"${passphrases[passNum - 1]}"`;
+
+    const statusText = document.getElementById('enroll-status-text');
+    if (statusText && !isRecording) {
+      statusText.innerText = `Tap to speak Pass ${passNum}`;
+    }
+
+    for (let i = 1; i <= 3; i++) {
+      const card = document.getElementById(`step-card-${i}`);
+      const status = document.getElementById(`step-status-${i}`);
+      if (!card || !status) continue;
+
+      if (i < passNum || existingSampleCount >= 3) {
+        card.className = 'pass-step done';
+        status.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--green);"></i> Done';
+      } else if (i === passNum) {
+        card.className = 'pass-step active';
+        status.innerHTML = '<i class="fa-solid fa-circle-dot" style="color:var(--green);"></i> Ready';
+      } else {
+        card.className = 'pass-step';
+        status.innerHTML = 'Pending';
+      }
+    }
+  }
+
+  async function toggleEnrollmentRecording() {
+    if (isProcessing) return;
+    if (!voiceRecorder) voiceRecorder = new ApexVoiceRecorder();
+
+    const btn = document.getElementById('enroll-record-btn');
+    const icon = document.getElementById('enroll-record-icon');
+    const statusText = document.getElementById('enroll-status-text');
+    const canvas = document.getElementById('enroll-visualizer');
+    const vu = document.getElementById('enroll-vu');
+    const feedback = document.getElementById('enroll-feedback');
+
+    if (!isRecording) {
+      isProcessing = true;
+      icon.className = 'fa-solid fa-spinner fa-spin';
+      statusText.innerHTML = '<span style="color:var(--amber);"><i class="fa-solid fa-spinner fa-spin"></i> Opening microphone...</span>';
+
+      try {
+        await voiceRecorder.startRecording(canvas, vu);
+        isRecording = true;
+        btn.classList.add('recording');
+        icon.className = 'fa-solid fa-stop';
+        statusText.innerHTML = `<span style="color:var(--red);">● Recording Pass ${currentPass}... Speak now</span>`;
+        feedback.style.display = 'none';
+      } catch (err) {
+        icon.className = 'fa-solid fa-microphone';
+        statusText.innerHTML = `<span style="color:var(--red);">${err.message || 'Mic access failed'}</span>`;
+        feedback.className = 'feedback-panel error';
+        feedback.style.display = 'block';
+        feedback.innerHTML = `<strong>Microphone Error:</strong> ${err.message || 'Access denied'}`;
+      } finally {
+        isProcessing = false;
+      }
+    } else {
+      isProcessing = true;
+      isRecording = false;
+      btn.classList.remove('recording');
+      icon.className = 'fa-solid fa-spinner fa-spin';
+      statusText.innerHTML = `<span style="color:var(--cyan);">Processing Pass ${currentPass}...</span>`;
+
+      try {
+        const audioResult = await voiceRecorder.stopRecording();
+        if (!audioResult) {
+          icon.className = 'fa-solid fa-microphone';
+          statusText.innerText = 'Recording failed. Try again.';
+          return;
+        }
+
+        const phrase = passphrases[currentPass - 1];
+        const formData = new FormData();
+        formData.append('pass_index', currentPass);
+        formData.append('audio_data', audioResult.base64Wav);
+        formData.append('passphrase', phrase);
+
+        const csrftoken = '{{ csrf_token }}';
+        const response = await fetch("{% url 'app:api_voice_enroll' %}", {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrftoken },
+          body: formData
+        });
+        const resData = await response.json();
+        icon.className = 'fa-solid fa-microphone';
+
+        if (response.ok && resData.status === 'success') {
+          const stepCard = document.getElementById(`step-card-${currentPass}`);
+          const stepStatus = document.getElementById(`step-status-${currentPass}`);
+          if (stepCard) {
+            stepCard.className = 'pass-step done';
+            stepStatus.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--green);"></i> Done';
+          }
+
+          if (resData.is_complete || currentPass === 3) {
+            statusText.innerHTML = '<span style="color:var(--green);"><i class="fa-solid fa-circle-check"></i> Enrollment Complete!</span>';
+            feedback.className = 'feedback-panel success';
+            feedback.style.display = 'block';
+            feedback.innerHTML = `<strong>Voiceprint Activated</strong><br>Variance: ${resData.intra_variance} | Pitch: ${resData.pitch_hz} Hz`;
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            currentPass += 1;
+            updatePassUI(currentPass);
+            statusText.innerHTML = `<span style="color:var(--green);">✓ Pass ${currentPass - 1} saved! Tap for Pass ${currentPass}</span>`;
+          }
+        } else {
+          statusText.innerHTML = `<span style="color:var(--red);">Pass rejected</span>`;
+          feedback.className = 'feedback-panel error';
+          feedback.style.display = 'block';
+          feedback.innerHTML = resData.message || 'Pass rejected.';
+        }
+      } catch (err) {
+        icon.className = 'fa-solid fa-microphone';
+        statusText.innerText = 'Network error.';
+      } finally {
+        isProcessing = false;
+      }
+    }
+  }
+
+  /* ===== VERIFICATION TEST ===== */
   async function refreshDashboardChallenge() {
     try {
       const res = await fetch("{% url 'app:api_voice_challenge' %}");
@@ -322,18 +409,12 @@
       if (data.status === 'success') {
         document.getElementById('dash-challenge-phrase').innerText = `"${data.challenge_phrase}"`;
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   }
-
-  let isTestProcessing = false;
 
   async function toggleDashboardTestRecording() {
     if (isTestProcessing) return;
-    if (!voiceRecorder) {
-      voiceRecorder = new ApexVoiceRecorder();
-    }
+    if (!voiceRecorder) voiceRecorder = new ApexVoiceRecorder();
 
     const btn = document.getElementById('dash-test-record-btn');
     const icon = document.getElementById('dash-test-record-icon');
@@ -344,21 +425,19 @@
 
     if (!isTestRecording) {
       isTestProcessing = true;
-      icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
-      statusText.innerHTML = '<span class="text-amber-400 font-bold"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Opening microphone...</span>';
+      icon.className = 'fa-solid fa-spinner fa-spin';
+      statusText.innerHTML = '<span style="color:var(--amber);">Opening microphone...</span>';
 
       try {
         await voiceRecorder.startRecording(canvas, vu);
         isTestRecording = true;
         btn.classList.add('recording');
-        icon.className = 'fa-solid fa-stop text-2xl';
-        statusText.innerHTML = '<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle text-[8px] animate-pulse mr-1"></i> Recording... Speak phrase clearly</span>';
-        feedback.classList.add('hidden');
+        icon.className = 'fa-solid fa-stop';
+        statusText.innerHTML = '<span style="color:var(--red);">● Recording... Speak phrase</span>';
+        feedback.style.display = 'none';
       } catch (err) {
-        icon.className = 'fa-solid fa-microphone text-2xl';
-        statusText.innerHTML = `<span class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${err.message || 'Mic access failed'}</span>`;
-        feedback.className = 'mt-4 rounded-2xl border border-rose-500/50 bg-rose-950/80 p-4 text-xs font-mono text-rose-200 block';
-        feedback.innerHTML = `<div><strong class="text-rose-300"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Microphone Alert:</strong> ${err.message || 'Mic access failed'}</div>`;
+        icon.className = 'fa-solid fa-microphone';
+        statusText.innerHTML = `<span style="color:var(--red);">${err.message || 'Mic failed'}</span>`;
       } finally {
         isTestProcessing = false;
       }
@@ -368,14 +447,14 @@
     isTestProcessing = true;
     isTestRecording = false;
     btn.classList.remove('recording');
-    icon.className = 'fa-solid fa-spinner fa-spin text-2xl';
-    statusText.innerText = 'Extracting acoustic features & comparing voiceprint...';
+    icon.className = 'fa-solid fa-spinner fa-spin';
+    statusText.innerText = 'Verifying voiceprint...';
 
     try {
       const audioResult = await voiceRecorder.stopRecording();
       if (!audioResult) {
-        icon.className = 'fa-solid fa-microphone text-2xl';
-        statusText.innerText = 'Recording failed. Try again.';
+        icon.className = 'fa-solid fa-microphone';
+        statusText.innerText = 'Recording failed.';
         return;
       }
 
@@ -386,45 +465,40 @@
       formData.append('spoken_transcript', audioResult.transcript || '');
 
       const csrftoken = '{{ csrf_token }}';
-
       const response = await fetch("{% url 'app:api_voice_test_verify' %}", {
         method: 'POST',
         headers: { 'X-CSRFToken': csrftoken },
         body: formData
       });
-
       const resData = await response.json();
-      icon.className = 'fa-solid fa-microphone text-2xl';
+      icon.className = 'fa-solid fa-microphone';
 
       if (response.ok && resData.status === 'success') {
-        statusText.innerHTML = '<span class="text-emerald-400 font-bold"><i class="fa-solid fa-circle-check mr-1"></i> VERIFIED MATCH! Access Granted</span>';
-        feedback.className = 'mt-4 rounded-2xl border border-emerald-500/40 bg-emerald-950/80 p-4 text-xs font-mono text-emerald-200 space-y-1 block';
+        statusText.innerHTML = '<span style="color:var(--green);"><i class="fa-solid fa-circle-check"></i> VERIFIED!</span>';
+        feedback.className = 'feedback-panel success';
+        feedback.style.display = 'block';
         feedback.innerHTML = `
-          <div class="font-bold text-sm text-emerald-300"><i class="fa-solid fa-shield-check mr-1"></i> AUTHENTICATION ACCEPTED</div>
-          <div>Cosine Similarity: <strong>${resData.metrics.similarity_score}</strong> (Threshold &theta; = 0.72)</div>
-          <div>Confidence Match: <strong>${resData.metrics.confidence_pct}%</strong> | Liveness Score: <strong>${resData.metrics.liveness_score}</strong></div>
-          <div>Signal SNR: <strong>${resData.metrics.snr_db} dB</strong> | Response Time: <strong>${resData.metrics.latency_ms} ms</strong></div>
+          <strong>✓ Authentication Accepted</strong><br>
+          Similarity: ${resData.metrics.similarity_score} | Confidence: ${resData.metrics.confidence_pct}%<br>
+          Liveness: ${resData.metrics.liveness_score} | Latency: ${resData.metrics.latency_ms}ms
         `;
-        setTimeout(() => { window.location.reload(); }, 2500);
+        setTimeout(() => window.location.reload(), 2000);
       } else {
-        statusText.innerHTML = `<span class="text-rose-400 font-bold"><i class="fa-solid fa-circle-xmark mr-1"></i> ${resData.decision || 'REJECTED'}</span>`;
-        feedback.className = 'mt-4 rounded-2xl border border-rose-500/40 bg-rose-950/80 p-4 text-xs font-mono text-rose-200 space-y-1 block';
-        feedback.innerHTML = `
-          <div class="font-bold text-sm text-rose-300"><i class="fa-solid fa-triangle-exclamation mr-1"></i> AUTHENTICATION ${resData.decision || 'DENIED'}</div>
-          <div>${resData.message}</div>
-          ${resData.metrics ? `<div>Similarity: ${resData.metrics.similarity_score || 0} | Latency: ${resData.metrics.latency_ms || 0} ms</div>` : ''}
-        `;
+        statusText.innerHTML = `<span style="color:var(--red);">${resData.decision || 'REJECTED'}</span>`;
+        feedback.className = 'feedback-panel error';
+        feedback.style.display = 'block';
+        feedback.innerHTML = `<strong>${resData.decision || 'DENIED'}</strong><br>${resData.message}`;
       }
     } catch (err) {
-      icon.className = 'fa-solid fa-microphone text-2xl';
-      statusText.innerText = 'Network error during test verification.';
+      icon.className = 'fa-solid fa-microphone';
+      statusText.innerText = 'Network error.';
     } finally {
       isTestProcessing = false;
     }
   }
 
   async function resetVoiceVault() {
-    if (!confirm("Reset voiceprint template and re-enroll?")) return;
+    if (!confirm("Reset voiceprint and re-enroll?")) return;
     const csrftoken = '{{ csrf_token }}';
     try {
       const res = await fetch("{% url 'app:api_voice_reset' %}", {
@@ -433,7 +507,7 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
-        alert("Voice profile reset successfully.");
+        alert("Voice profile reset.");
         window.location.reload();
       }
     } catch (e) {

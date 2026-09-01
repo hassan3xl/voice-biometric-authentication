@@ -1,191 +1,26 @@
 {% load static %}
-<header class="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 shadow-lg">
-  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
-    
-    <!-- Brand / Logo -->
-    <div class="flex items-center gap-6">
-      <a href="{% url 'app:home' %}" class="flex items-center gap-2.5 font-extrabold text-lg text-white hover:text-emerald-400 transition-colors" title="voice biometric">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-          <i class="fa-solid fa-waveform-lines text-base"></i>
-        </div>
-        <span class="tracking-tight text-white font-heading text-base sm:text-lg">voice biometric</span>
+<header id="app-header">
+  <nav>
+    <a href="{% url 'app:home' %}" class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-waveform-lines"></i>
+      </div>
+      <span>VoiceAuth</span>
+    </a>
+
+    <div class="nav-actions">
+      {% if user.is_authenticated %}
+      <div class="user-pill">
+        <div class="user-avatar">{{ user.username|slice:":1" }}</div>
+        <span class="user-name">{{ user.first_name|default:user.username }}</span>
+      </div>
+      <a href="{% url 'app:logout' %}" class="nav-logout" title="Logout">
+        <i class="fa-solid fa-right-from-bracket"></i>
       </a>
-
-      <!-- Desktop Links (Hidden on Mobile) -->
-      {% if user.is_authenticated %}
-      <div class="hidden md:flex items-center gap-1.5 text-xs font-semibold">
-        <a href="{% url 'app:banking_dashboard' %}" class="px-3 py-2 rounded-lg transition-colors {% if request.resolver_match.url_name == 'banking_dashboard' or request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'home' %}bg-emerald-600 text-white shadow-sm{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
-          <i class="fa-solid fa-gauge mr-1 text-emerald-400"></i> Dashboard
-        </a>
-        <a href="{% url 'app:voice_vault' %}" class="px-3 py-2 rounded-lg transition-colors {% if request.resolver_match.url_name == 'voice_vault' %}bg-emerald-600 text-white shadow-sm{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
-          <i class="fa-solid fa-vault mr-1 text-emerald-400"></i> Voice Vault
-        </a>
-        <a href="{% url 'app:evaluation_dashboard' %}" class="px-3 py-2 rounded-lg transition-colors {% if request.resolver_match.url_name == 'evaluation_dashboard' %}bg-emerald-600 text-white shadow-sm{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
-          <i class="fa-solid fa-flask-vial mr-1 text-cyan-400"></i> Scientific Lab
-        </a>
-        <a href="{% url 'app:audit_logs' %}" class="px-3 py-2 rounded-lg transition-colors {% if request.resolver_match.url_name == 'audit_logs' %}bg-emerald-600 text-white shadow-sm{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
-          <i class="fa-solid fa-shield-halved mr-1 text-amber-400"></i> Audit Logs
-        </a>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- Right Navigation Actions -->
-    <div class="flex items-center gap-2 sm:gap-3">
-      {% if user.is_authenticated %}
-      
-      <!-- Notifications Button -->
-      <div class="relative">
-        <button
-          id="nav-bell-btn"
-          type="button"
-          aria-label="Notifications"
-          title="Notifications"
-          class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white transition cursor-pointer"
-        >
-          <i class="fa-solid fa-bell text-sm text-slate-300"></i>
-          <span
-            id="nav-bell-badge"
-            class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center border-2 border-slate-900 px-1 shadow-sm {% if unread_notifications_count == 0 %}hidden{% endif %}"
-          >
-            {% if unread_notifications_count > 99 %}99+{% else %}{{ unread_notifications_count }}{% endif %}
-          </span>
-        </button>
-
-        <!-- Notification Modal Dropdown -->
-        <div
-          id="nav-notification-modal"
-          class="hidden absolute top-12 right-0 w-80 sm:w-96 bg-slate-900 text-slate-100 rounded-2xl shadow-2xl border border-slate-700 z-50 overflow-hidden"
-        >
-          <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-slate-950">
-            <div class="font-bold text-sm text-white flex items-center gap-2">
-              <i class="fa-solid fa-bell text-emerald-400"></i>
-              <span>Notifications</span>
-            </div>
-            <button
-              id="modal-mark-all-btn"
-              type="button"
-              class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-            >
-              Mark all read
-            </button>
-          </div>
-
-          <div id="nav-notification-modal-list" class="max-h-80 overflow-y-auto divide-y divide-slate-800">
-            <div class="p-6 text-center text-slate-400 text-xs">Loading notifications...</div>
-          </div>
-
-          <div class="px-4 py-2.5 border-t border-slate-800 text-center bg-slate-950">
-            <a href="{% url 'notifications:list' %}" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors block">
-              View All Notifications &rarr;
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <!-- Desktop User Dropdown -->
-      <div class="relative group hidden sm:block">
-        <button class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-semibold transition cursor-pointer">
-          <div class="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold text-xs uppercase">
-            {{ user.username|slice:":1" }}
-          </div>
-          <span class="max-w-[120px] truncate text-slate-200">{{ user.first_name|default:user.username }}</span>
-          <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
-        </button>
-
-        <div class="hidden group-hover:block absolute right-0 top-full pt-1.5 w-52 z-50">
-          <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-1 text-slate-200 text-xs font-medium overflow-hidden">
-            <div class="px-4 py-2 border-b border-slate-800">
-              <p class="font-bold text-white truncate">{{ user.username }}</p>
-              <p class="text-[10px] text-slate-400 truncate">{{ user.email }}</p>
-            </div>
-         
-            <div class="border-t border-slate-800 my-1"></div>
-            <a href="{% url 'app:logout' %}" class="flex items-center gap-2.5 px-4 py-2.5 hover:bg-rose-950/60 text-rose-400 font-semibold transition">
-              <i class="fa-solid fa-right-from-bracket text-rose-400 w-4"></i>
-              <span>Logout</span>
-            </a>
-          </div>
-        </div>
-      </div>
-
       {% else %}
-      <!-- Guest Desktop Action Links -->
-      <div class="hidden sm:flex items-center gap-2">
-        <a href="{% url 'app:login' %}" class="text-xs font-semibold text-slate-200 hover:text-white px-3.5 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 transition">
-          Sign In
-        </a>
-        <a href="{% url 'app:register' %}" class="text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl shadow-md transition">
-          Register
-        </a>
-      </div>
+      <a href="{% url 'app:login' %}" class="nav-link-btn">Sign In</a>
+      <a href="{% url 'app:register' %}" class="nav-link-btn nav-link-primary">Register</a>
       {% endif %}
-
-      <!-- Mobile Hamburger Menu Button -->
-      <button
-        id="mobile-menu-btn"
-        type="button"
-        onclick="toggleMobileMenu()"
-        class="md:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 hover:text-white transition"
-        aria-label="Toggle Navigation Menu"
-      >
-        <i id="mobile-menu-icon" class="fa-solid fa-bars text-base"></i>
-      </button>
-
     </div>
   </nav>
-
-  <!-- Mobile Collapsible Navigation Drawer -->
-  <div id="mobile-menu" class="hidden md:hidden border-t border-slate-800 bg-slate-950 px-4 py-3 space-y-2 font-medium text-sm">
-    {% if user.is_authenticated %}
-      <a href="{% url 'app:banking_dashboard' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-200 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-gauge text-emerald-400 w-5"></i>
-        <span>Dashboard</span>
-      </a>
-      <a href="{% url 'app:voice_vault' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-200 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-vault text-emerald-400 w-5"></i>
-        <span>Voice Vault Studio</span>
-      </a>
-      <a href="{% url 'app:evaluation_dashboard' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-200 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-flask-vial text-cyan-400 w-5"></i>
-        <span>Scientific Evaluation Lab</span>
-      </a>
-      <a href="{% url 'app:audit_logs' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-200 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-shield-halved text-amber-400 w-5"></i>
-        <span>Forensic Audit Logs</span>
-      </a>
-   
-      <div class="border-t border-slate-800 pt-2">
-        <a href="{% url 'app:logout' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-rose-400 hover:bg-rose-950/60 font-semibold transition">
-          <i class="fa-solid fa-right-from-bracket text-rose-400 w-5"></i>
-          <span>Logout ({{ user.username }})</span>
-        </a>
-      </div>
-    {% else %}
-      <a href="{% url 'app:login' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-200 hover:bg-slate-800 hover:text-white transition">
-        <i class="fa-solid fa-right-to-bracket text-emerald-400 w-5"></i>
-        <span>Sign In</span>
-      </a>
-      <a href="{% url 'app:register' %}" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 font-semibold transition">
-        <i class="fa-solid fa-user-plus w-5"></i>
-        <span>Create Account</span>
-      </a>
-    {% endif %}
-  </div>
 </header>
-
-<script>
-  function toggleMobileMenu() {
-    const menu = document.getElementById('mobile-menu');
-    const icon = document.getElementById('mobile-menu-icon');
-    if (!menu) return;
-    const isHidden = menu.classList.contains('hidden');
-    if (isHidden) {
-      menu.classList.remove('hidden');
-      icon.className = 'fa-solid fa-xmark text-base';
-    } else {
-      menu.classList.add('hidden');
-      icon.className = 'fa-solid fa-bars text-base';
-    }
-  }
-</script>

@@ -1,140 +1,86 @@
-{% extends 'base.html' %}
+{% extends 'app/base.html' %}
 {% load static %}
 
-{% block title %}Forensic Biometric Audit Logs | voice biometric{% endblock %}
+{% block title %}Audit Logs{% endblock %}
 
 {% block content %}
-<div class="space-y-6 py-4">
-  
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 glass-panel p-6 bg-gradient-to-r from-[#0c1424] to-[#080d18] border-cyan-500/30">
+<div class="gap-stack-lg">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
     <div>
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono mb-2">
-        <i class="fa-solid fa-shield-halved"></i> Security Operations Center (SOC)
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-white">Forensic Biometric Audit Trail</h1>
-      <p class="text-xs text-slate-400">Immutable forensic telemetry for all voice login, wire step-up, and anti-spoof events</p>
+      <h1 style="font-size:20px;font-weight:800;">Audit Logs</h1>
+      <p style="font-size:12px;color:var(--text-muted);">Voice authentication activity</p>
     </div>
-    <span class="badge badge-primary font-mono text-xs">{{ logs.paginator.count }} Total Audit Records</span>
+    <span class="badge badge-green" style="font-size:10px;">{{ logs.paginator.count }} records</span>
   </div>
 
-  <!-- Search & Filter Bar -->
-  <div class="glass-panel p-4">
-    <form method="GET" action="{% url 'app:audit_logs' %}" class="flex flex-wrap items-center gap-3">
-      <div class="flex-1 min-w-[200px] relative">
-        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-          <i class="fa-solid fa-magnifying-glass text-xs"></i>
+  <!-- Filters -->
+  <div class="card">
+    <div class="card-body">
+      <form method="GET" action="{% url 'app:audit_logs' %}" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <input type="text" name="q" value="{{ search_q }}" class="form-input" style="flex:1;min-width:140px;padding:8px 12px;font-size:12px;" placeholder="Search phrase, IP...">
+
+        <select name="decision" class="form-input" style="width:auto;padding:8px 10px;font-size:12px;">
+          <option value="">All</option>
+          <option value="ACCEPTED" {% if decision_filter == 'ACCEPTED' %}selected{% endif %}>Accepted</option>
+          <option value="REJECTED" {% if decision_filter == 'REJECTED' %}selected{% endif %}>Rejected</option>
+          <option value="SPOOF_DETECTED" {% if decision_filter == 'SPOOF_DETECTED' %}selected{% endif %}>Spoof</option>
+        </select>
+
+        <button type="submit" class="btn btn-green btn-sm">Filter</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Log Items -->
+  <div class="gap-stack">
+    {% for log in logs %}
+    <div class="audit-item">
+      <div class="audit-top">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+          <span style="font-size:10px;font-family:var(--mono);color:var(--text-dim);">{{ log.created_at|date:"M d, H:i" }}</span>
+          <span class="audit-phrase">"{{ log.challenge_phrase|truncatechars:25 }}"</span>
+        </div>
+        <span class="badge {% if log.decision == 'ACCEPTED' %}badge-green{% elif log.decision == 'SPOOF_DETECTED' %}badge-red{% else %}badge-amber{% endif %}" style="font-size:9px;">
+          {{ log.decision }}
         </span>
-        <input type="text" name="q" value="{{ search_q }}" class="form-input pl-8 py-2 text-xs" placeholder="Search by customer, IP address, or challenge phrase...">
       </div>
-
-      <select name="decision" class="form-select py-2 text-xs w-auto">
-        <option value="">All Decisions</option>
-        <option value="ACCEPTED" {% if decision_filter == 'ACCEPTED' %}selected{% endif %}>Accepted Only</option>
-        <option value="REJECTED" {% if decision_filter == 'REJECTED' %}selected{% endif %}>Rejected Only</option>
-        <option value="SPOOF_DETECTED" {% if decision_filter == 'SPOOF_DETECTED' %}selected{% endif %}>Spoof Interceptions</option>
-      </select>
-
-      <select name="attempt_type" class="form-select py-2 text-xs w-auto">
-        <option value="">All Operations</option>
-        <option value="LOGIN" {% if attempt_type == 'LOGIN' %}selected{% endif %}>1-Click Login</option>
-        <option value="STEP_UP_TRANSACTION" {% if attempt_type == 'STEP_UP_TRANSACTION' %}selected{% endif %}>Wire Step-Up</option>
-        <option value="RE_ENROLLMENT" {% if attempt_type == 'RE_ENROLLMENT' %}selected{% endif %}>Enrollment Pass</option>
-      </select>
-
-      <button type="submit" class="btn-primary text-xs py-2 px-4">
-        Filter Logs
-      </button>
-    </form>
+      <div class="audit-metrics">
+        <div>Sim: <strong>{{ log.similarity_score|floatformat:3 }}</strong></div>
+        <div>Conf: <strong>{{ log.confidence_score|floatformat:1 }}%</strong></div>
+        <div>Live: <strong>{{ log.liveness_score|floatformat:2 }}</strong></div>
+        <div>Time: <strong>{{ log.latency_ms|floatformat:1 }}ms</strong></div>
+      </div>
+      {% if log.attack_type != 'NONE' %}
+      <div style="margin-top:6px;font-size:10px;color:var(--red);font-weight:600;">
+        <i class="fa-solid fa-triangle-exclamation"></i> {{ log.attack_type }}
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="empty-state">No audit logs found.</div>
+    {% endfor %}
   </div>
 
-  <!-- Logs Table -->
-  <div class="glass-panel overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-left text-xs border-collapse font-mono">
-        <thead>
-          <tr class="border-b border-white/10 bg-black/40 text-slate-400 uppercase tracking-wider text-[10px]">
-            <th class="py-3 px-4">Timestamp (UTC)</th>
-            <th class="py-3 px-4">Customer</th>
-            <th class="py-3 px-4">Operation</th>
-            <th class="py-3 px-4">Similarity Score</th>
-            <th class="py-3 px-4">Liveness Index</th>
-            <th class="py-3 px-4">ISO 30107 Attack Flag</th>
-            <th class="py-3 px-4">Latency</th>
-            <th class="py-3 px-4">Client IP</th>
-            <th class="py-3 px-4 text-right">Decision</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-white/5 font-sans">
-          {% for log in logs %}
-          <tr class="hover:bg-white/[0.02] transition-colors">
-            <td class="py-3 px-4 font-mono text-[11px] text-slate-400">
-              {{ log.created_at|date:"Y-m-d H:i:s" }}
-            </td>
-            <td class="py-3 px-4 font-semibold text-slate-200">
-              {{ log.user.username }}
-            </td>
-            <td class="py-3 px-4">
-              <span class="badge badge-primary text-[9px]">{{ log.get_attempt_type_display }}</span>
-            </td>
-            <td class="py-3 px-4 font-mono">
-              <strong class="{% if log.similarity_score >= log.threshold_used %}text-emerald-400{% else %}text-rose-400{% endif %}">
-                {{ log.similarity_score|floatformat:3 }}
-              </strong>
-              <span class="text-slate-400 text-[10px]"> (θ={{ log.threshold_used|floatformat:2 }})</span>
-            </td>
-            <td class="py-3 px-4 font-mono">
-              <strong class="{% if log.liveness_score >= 0.70 %}text-emerald-400{% else %}text-amber-400{% endif %}">
-                {{ log.liveness_score|floatformat:2 }}
-              </strong>
-            </td>
-            <td class="py-3 px-4 font-mono text-[11px]">
-              {% if log.attack_type != 'NONE' %}
-                <span class="text-rose-400 font-bold"><i class="fa-solid fa-skull-crossbones mr-1"></i> {{ log.attack_type }}</span>
-              {% else %}
-                <span class="text-slate-400">Bona Fide</span>
-              {% endif %}
-            </td>
-            <td class="py-3 px-4 font-mono text-slate-300">
-              {{ log.latency_ms|floatformat:1 }} ms
-            </td>
-            <td class="py-3 px-4 font-mono text-slate-400 text-[11px]">
-              {{ log.client_ip }}
-            </td>
-            <td class="py-3 px-4 text-right font-mono">
-              {% if log.decision == 'ACCEPTED' %}
-                <span class="badge badge-success text-[10px]">ACCEPTED</span>
-              {% elif log.decision == 'SPOOF_DETECTED' %}
-                <span class="badge badge-danger text-[10px]">SPOOF DETECTED</span>
-              {% else %}
-                <span class="badge badge-warning text-[10px]">REJECTED</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="9" class="py-8 text-center text-slate-400 text-xs">
-              No biometric audit logs matching query criteria.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <!-- Pagination -->
+  {% if logs.has_other_pages %}
+  <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;font-family:var(--mono);color:var(--text-dim);">
+    <span>Page {{ logs.number }}/{{ logs.paginator.num_pages }}</span>
+    <div style="display:flex;gap:8px;">
+      {% if logs.has_previous %}
+      <a href="?page={{ logs.previous_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if decision_filter %}&decision={{ decision_filter }}{% endif %}" class="btn btn-outline btn-sm">← Prev</a>
+      {% endif %}
+      {% if logs.has_next %}
+      <a href="?page={{ logs.next_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if decision_filter %}&decision={{ decision_filter }}{% endif %}" class="btn btn-outline btn-sm">Next →</a>
+      {% endif %}
     </div>
+  </div>
+  {% endif %}
 
-    <!-- Pagination -->
-    {% if logs.has_other_pages %}
-    <div class="p-4 border-t border-white/10 flex items-center justify-between text-xs font-mono">
-      <span class="text-slate-400">Page {{ logs.number }} of {{ logs.paginator.num_pages }}</span>
-      <div class="flex items-center gap-2">
-        {% if logs.has_previous %}
-        <a href="?page={{ logs.previous_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if decision_filter %}&decision={{ decision_filter }}{% endif %}" class="btn-secondary py-1 px-3 text-xs">Previous</a>
-        {% endif %}
-        {% if logs.has_next %}
-        <a href="?page={{ logs.next_page_number }}{% if search_q %}&q={{ search_q }}{% endif %}{% if decision_filter %}&decision={{ decision_filter }}{% endif %}" class="btn-secondary py-1 px-3 text-xs">Next</a>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
+  <!-- Back link -->
+  <div style="text-align:center;">
+    <a href="{% url 'app:banking_dashboard' %}" class="link-green" style="font-size:12px;">← Back to Dashboard</a>
   </div>
 
 </div>

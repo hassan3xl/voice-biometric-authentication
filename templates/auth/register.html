@@ -1,106 +1,73 @@
-{% extends 'base.html' %}
+{% extends 'app/base.html' %}
 {% load static %}
 
-{% block title %}Create Account | voice biometric{% endblock %}
+{% block title %}Create Account{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-xl space-y-6 sm:space-y-8">
-  
-  <section class="rounded-3xl border border-slate-800 bg-slate-900 p-6 sm:p-8 shadow-2xl text-center space-y-3">
-    <div class="mx-auto inline-flex items-center gap-2 rounded-full bg-emerald-950/80 border border-emerald-500/40 px-3.5 py-1 text-xs font-semibold text-emerald-400">
-      <i class="fa-solid fa-user-shield"></i> voice biometric User Registration
+<div class="gap-stack-lg" style="max-width:440px;margin:0 auto;">
+
+  <!-- Header -->
+  <div style="text-align:center;padding:8px 0;">
+    <div class="badge badge-green" style="margin-bottom:12px;">
+      <i class="fa-solid fa-user-shield"></i> New Account
     </div>
-    <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-heading">
-      Create Your Account
-    </h1>
-    <p class="mx-auto max-w-md text-xs sm:text-sm text-slate-300">
-      Register once, then enroll your acoustic voiceprint to test and demonstrate voice biometric authentication.
+    <h1 style="font-size:24px;font-weight:800;color:var(--text);">Create Account</h1>
+    <p style="font-size:13px;color:var(--text-muted);margin-top:4px;">
+      Register then enroll your voiceprint
     </p>
-  </section>
+  </div>
 
-  <section class="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 p-6 sm:p-8 shadow-2xl">
-    <form method="POST" action="{% url 'app:register' %}" class="space-y-5">
-      {% csrf_token %}
+  <!-- Register Card -->
+  <div class="card">
+    <div class="card-body-lg">
+      <form method="POST" action="{% url 'app:register' %}" class="gap-stack">
+        {% csrf_token %}
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class="mb-2 block text-xs font-semibold text-slate-300" for="id_first_name">First name</label>
-          <input
-            type="text"
-            name="first_name"
-            id="id_first_name"
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            placeholder="First Name"
-            required
-          >
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label" for="id_first_name">First Name</label>
+            <input type="text" name="first_name" id="id_first_name" class="form-input" placeholder="First" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="id_last_name">Last Name</label>
+            <input type="text" name="last_name" id="id_last_name" class="form-input" placeholder="Last" required>
+          </div>
         </div>
-        <div>
-          <label class="mb-2 block text-xs font-semibold text-slate-300" for="id_last_name">Last name</label>
-          <input
-            type="text"
-            name="last_name"
-            id="id_last_name"
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            placeholder="Last Name"
-            required
-          >
+
+        <div class="form-group">
+          <label class="form-label" for="id_email">Email</label>
+          <input type="email" name="email" id="id_email" class="form-input" placeholder="email@example.com" required>
         </div>
-      </div>
 
-      <div>
-        <label class="mb-2 block text-xs font-semibold text-slate-300" for="id_email">Email address</label>
-        <input
-          type="email"
-          name="email"
-          id="id_email"
-          class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-          placeholder="email@example.com"
-          required
-        >
-      </div>
-
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class="mb-2 block text-xs font-semibold text-slate-300" for="id_password1">Password</label>
-          <input
-            type="password"
-            name="password1"
-            id="id_password1"
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            placeholder="••••••••••••"
-            required
-          >
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label" for="id_password1">Password</label>
+            <input type="password" name="password1" id="id_password1" class="form-input" placeholder="••••••••" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="id_password2">Confirm</label>
+            <input type="password" name="password2" id="id_password2" class="form-input" placeholder="••••••••" required>
+          </div>
         </div>
-        <div>
-          <label class="mb-2 block text-xs font-semibold text-slate-300" for="id_password2">Confirm password</label>
-          <input
-            type="password"
-            name="password2"
-            id="id_password2"
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-            placeholder="••••••••••••"
-            required
-          >
+
+        <div class="vp-info enrolled" style="font-size:12px;">
+          <div class="vp-info-title" style="font-size:12px;">
+            <i class="fa-solid fa-microphone-lines"></i> Voice enroll after signup
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);">You'll record 3 spoken phrases to create your voiceprint.</div>
         </div>
-      </div>
 
-      <div class="rounded-2xl border border-emerald-500/40 bg-emerald-950/40 p-4 text-xs text-emerald-200 space-y-1">
-        <p class="font-bold text-emerald-300"><i class="fa-solid fa-microphone-lines mr-1"></i> Voice biometric enrollment follows registration</p>
-        <p class="text-slate-300">You will be guided to record 3 spoken passes to train and activate your 192D acoustic voiceprint profile.</p>
-      </div>
-
-      <button
-        type="submit"
-        class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-500"
-      >
-        <i class="fa-solid fa-user-plus"></i> Create Account & Proceed to Enrollment
-      </button>
-    </form>
-
-    <div class="mt-6 text-center text-xs text-slate-400 pt-4 border-t border-slate-800">
-      Already registered?
-      <a href="{% url 'app:login' %}" class="font-bold text-emerald-400 hover:text-emerald-300 ml-1">Sign in &rarr;</a>
+        <button type="submit" class="btn btn-green btn-block">
+          <i class="fa-solid fa-user-plus"></i> Create Account
+        </button>
+      </form>
     </div>
-  </section>
+
+    <div style="border-top:1px solid var(--border);padding:14px;text-align:center;font-size:12px;color:var(--text-dim);">
+      Already registered?
+      <a href="{% url 'app:login' %}" class="link-green" style="margin-left:4px;">Sign in →</a>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
