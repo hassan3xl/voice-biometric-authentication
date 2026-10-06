@@ -126,10 +126,13 @@ def get_voice_challenge_api(request):
 @csrf_exempt
 @require_POST
 def voice_login_api(request):
-    """Voice login API that identifies the account owner from the voice sample itself."""
+    """Voice Biometric Login API supporting both 1:1 Claimed-Identity Verification
+    and Margin-Gated 1:N Speaker Identification (ECAPA-TDNN 192-D).
+    """
     audio_base64 = request.POST.get('audio_data', '')
     challenge_phrase = request.POST.get('challenge_phrase', '')
     spoken_transcript = request.POST.get('spoken_transcript', '')
+    identifier = request.POST.get('username_or_email', '').strip()
 
     if not audio_base64:
         return JsonResponse({'status': 'error', 'message': 'Voice audio stream was not captured.'}, status=400)
@@ -142,7 +145,6 @@ def voice_login_api(request):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'Failed to decode audio payload: {str(e)}'}, status=400)
 
-    # Run Voice Biometric Verification Pipeline once, then compare against all enrolled users
     client_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '127.0.0.1')).split(',')[0].strip()
     user_agent = request.META.get('HTTP_USER_AGENT', '')
 
@@ -230,32 +232,127 @@ def voice_login_api(request):
         }, status=401)
 
     test_embedding = pipeline['embedding']
-    enrolled_profiles = VoiceprintProfile.objects.filter(status='ACTIVE').select_related('user')
+    threshold = VoiceBiometricVerifier.RISK_THRESHOLDS.get('LOGIN', 0.72)
+    min_margin = 0.08  # Required separation margin over runner-up in 1:N mode
+
     best_profile = None
     best_similarity = -1.0
+    second_best_similarity = -1.0
 
-    for profile in enrolled_profiles:
-        if not profile.embedding_vector:
-            continue
-        similarity = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, profile.embedding_vector)
-        if similarity > best_similarity:
-          best_similarity = similarity
-          best_profile = profile
+    # Mode 1: 1:1 Claimed-Identity Verification (User entered email, username, or account number)
+    if identifier:
+        if '@' in identifier:
+            target_user = User.objects.filter(email__iexact=identifier).first()
+        else:
+            target_user = (
+                User.objects.filter(account_number=identifier).first()
+                or User.objects.filter(username__iexact=identifier).first()
+            )
 
-    threshold = 0.72
+        target_profile = getattr(target_user, 'voice_profile', None) if target_user else None
+        if not target_user or not target_profile or target_profile.status != 'ACTIVE' or not target_profile.embedding_vector:
+            return JsonResponse({
+                'status': 'rejected',
+                'authenticated': False,
+                'decision': 'REJECTED',
+                'message': 'No active enrolled voiceprint found for the specified account. Please sign in with password and enroll your Voice Vault.',
+                'metrics': {
+                    'similarity_score': 0.0,
+                    'confidence_pct': 0.0,
+                    'liveness_score': liveness_result.get('liveness_score', 0.0),
+                    'latency_ms': pipeline.get('latency_ms', 0.0),
+                    'attack_type': 'NONE',
+                }
+            }, status=401)
+
+        if len(target_profile.embedding_vector) != SpeakerEmbeddingEngine.EMBEDDING_DIM:
+            return JsonResponse({
+                'status': 'rejected',
+                'authenticated': False,
+                'decision': 'REJECTED',
+                'message': 'Your voiceprint was enrolled with a legacy model version. Please sign in with your password and re-enroll in Voice Vault.',
+                'metrics': {
+                    'similarity_score': 0.0,
+                    'confidence_pct': 0.0,
+                    'liveness_score': liveness_result.get('liveness_score', 0.0),
+                    'latency_ms': pipeline.get('latency_ms', 0.0),
+                    'attack_type': 'NONE',
+                }
+            }, status=401)
+
+        best_similarity = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, target_profile.embedding_vector)
+        best_profile = target_profile
+    else:
+        # Mode 2: 1:N Identification with Strict Ambiguity Margin Gate
+        enrolled_profiles = VoiceprintProfile.objects.filter(status='ACTIVE').select_related('user')
+        for profile in enrolled_profiles:
+            if not profile.embedding_vector or len(profile.embedding_vector) != SpeakerEmbeddingEngine.EMBEDDING_DIM:
+                continue
+            similarity = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, profile.embedding_vector)
+            if similarity > best_similarity:
+                second_best_similarity = best_similarity
+                best_similarity = similarity
+                best_profile = profile
+            elif similarity > second_best_similarity:
+                second_best_similarity = similarity
+
+        # Reject if two different accounts match too closely (prevents cross-account access)
+        if (
+            best_profile is not None
+            and best_similarity >= threshold
+            and second_best_similarity >= (threshold - 0.04)
+            and (best_similarity - second_best_similarity) < min_margin
+        ):
+            audit_log = BiometricAuditLog.objects.create(
+                user=None,
+                attempt_type='LOGIN',
+                challenge_phrase=challenge_phrase,
+                spoken_transcript=spoken_transcript,
+                similarity_score=round(float(best_similarity), 4),
+                threshold_used=threshold,
+                confidence_score=SpeakerEmbeddingEngine.compute_confidence_percentage(best_similarity, threshold=threshold),
+                liveness_score=liveness_result.get('liveness_score', 0.0),
+                snr_db=pipeline['snr_info']['snr_db'],
+                decision='REJECTED',
+                rejection_reason=f'Ambiguous 1:N match (Top: {best_similarity:.3f}, Runner-up: {second_best_similarity:.3f}). Account identifier required.',
+                attack_type='NONE',
+                latency_ms=pipeline.get('latency_ms', 0.0),
+                client_ip=client_ip,
+                user_agent=user_agent,
+            )
+            return JsonResponse({
+                'status': 'rejected',
+                'authenticated': False,
+                'decision': 'AMBIGUOUS_MATCH',
+                'message': 'Multiple accounts matched your voiceprint closely. Please enter your Email or Username above to verify your specific account.',
+                'metrics': {
+                    'similarity_score': round(float(best_similarity), 4),
+                    'confidence_pct': SpeakerEmbeddingEngine.compute_confidence_percentage(best_similarity, threshold=threshold),
+                    'liveness_score': liveness_result.get('liveness_score', 0.0),
+                    'latency_ms': pipeline.get('latency_ms', 0.0),
+                    'attack_type': 'NONE',
+                    'audit_id': audit_log.id,
+                }
+            }, status=401)
+
     if best_profile is None or best_similarity < threshold:
+        rejection_msg = (
+            f"Voiceprint did not match account '{identifier}' (Similarity {max(0.0, best_similarity):.3f} < {threshold:.2f})."
+            if identifier
+            else "No enrolled voice profile matched the speaker."
+        )
         audit_log = BiometricAuditLog.objects.create(
-            user=None,
+            user=best_profile.user if (identifier and best_profile) else None,
             attempt_type='LOGIN',
             challenge_phrase=challenge_phrase,
             spoken_transcript=spoken_transcript,
-            similarity_score=max(0.0, best_similarity),
+            similarity_score=round(max(0.0, float(best_similarity)), 4),
             threshold_used=threshold,
             confidence_score=SpeakerEmbeddingEngine.compute_confidence_percentage(max(0.0, best_similarity), threshold=threshold),
             liveness_score=liveness_result.get('liveness_score', 0.0),
             snr_db=pipeline['snr_info']['snr_db'],
             decision='REJECTED',
-            rejection_reason='No enrolled voice profile matched the speaker.',
+            rejection_reason=rejection_msg,
             attack_type=liveness_result.get('attack_type', 'NONE'),
             latency_ms=pipeline.get('latency_ms', 0.0),
             client_ip=client_ip,
@@ -265,9 +362,9 @@ def voice_login_api(request):
             'status': 'rejected',
             'authenticated': False,
             'decision': 'REJECTED',
-            'message': 'No enrolled voice profile matched the speaker.',
+            'message': rejection_msg,
             'metrics': {
-                'similarity_score': max(0.0, best_similarity),
+                'similarity_score': round(max(0.0, float(best_similarity)), 4),
                 'confidence_pct': SpeakerEmbeddingEngine.compute_confidence_percentage(max(0.0, best_similarity), threshold=threshold),
                 'liveness_score': liveness_result.get('liveness_score', 0.0),
                 'latency_ms': pipeline.get('latency_ms', 0.0),
@@ -279,7 +376,7 @@ def voice_login_api(request):
     user = best_profile.user
     verify_result = {
         'is_authenticated': True,
-        'similarity_score': best_similarity,
+        'similarity_score': round(float(best_similarity), 4),
         'confidence_pct': SpeakerEmbeddingEngine.compute_confidence_percentage(best_similarity, threshold=threshold),
         'liveness_score': liveness_result.get('liveness_score', 0.0),
         'attack_type': liveness_result.get('attack_type', 'NONE'),

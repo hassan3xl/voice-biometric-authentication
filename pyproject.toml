@@ -20,6 +20,8 @@ dependencies = [
     "webrtcvad>=2.0.10",
     "setuptools>=65.0.0",
     "torch",
+    "torchaudio",
+    "speechbrain>=1.0.0",
 ]
 
 [tool.uv.sources]

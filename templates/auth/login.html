@@ -55,6 +55,11 @@
 
       <!-- TAB 2: Voice Login -->
       <div id="content-voice" style="display:none;" class="gap-stack">
+        <div class="form-group">
+          <label class="form-label" for="voice-login-id">Email or Username <span style="font-weight:400;color:var(--text-dim);font-size:11px;">(Recommended for 1:1 verification)</span></label>
+          <input type="text" id="voice-login-id" class="form-input" placeholder="name@example.com">
+        </div>
+
         <div class="phrase-box">
           <div class="phrase-label">Challenge Phrase</div>
           <div id="challenge-display" class="phrase-text">"{{ initial_challenge }}"</div>
@@ -109,13 +114,17 @@
     const tabVce = document.getElementById('tab-voice');
     const cntPwd = document.getElementById('content-password');
     const cntVce = document.getElementById('content-voice');
+    const pwdId = document.getElementById('login-id');
+    const vceId = document.getElementById('voice-login-id');
 
     if (tab === 'password') {
+      if (vceId && pwdId && vceId.value && !pwdId.value) pwdId.value = vceId.value;
       tabPwd.classList.add('active');
       tabVce.classList.remove('active');
       cntPwd.style.display = '';
       cntVce.style.display = 'none';
     } else {
+      if (pwdId && vceId && pwdId.value && !vceId.value) vceId.value = pwdId.value;
       tabPwd.classList.remove('active');
       tabVce.classList.add('active');
       cntPwd.style.display = 'none';
@@ -169,7 +178,7 @@
     isVoiceRecording = false;
     btn.classList.remove('recording');
     icon.className = 'fa-solid fa-spinner fa-spin';
-    statusText.innerText = 'Verifying voiceprint...';
+    statusText.innerText = 'Verifying 192-D ECAPA-TDNN voiceprint...';
 
     try {
       const audioResult = await voiceRecorder.stopRecording();
@@ -180,10 +189,14 @@
       }
 
       const rawChallenge = document.getElementById('challenge-display').innerText.replace(/^"|"$/g, '');
+      const voiceLoginId = (document.getElementById('voice-login-id')?.value || document.getElementById('login-id')?.value || '').trim();
       const formData = new FormData();
       formData.append('audio_data', audioResult.base64Wav);
       formData.append('challenge_phrase', rawChallenge);
       formData.append('spoken_transcript', audioResult.transcript || '');
+      if (voiceLoginId) {
+        formData.append('username_or_email', voiceLoginId);
+      }
 
       const csrftoken = '{{ csrf_token }}';
       const response = await fetch("{% url 'app:api_voice_login' %}", {

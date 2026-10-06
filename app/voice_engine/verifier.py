@@ -47,7 +47,7 @@ class VoiceBiometricVerifier:
         # 6. MFCC Feature Extraction (60 dimensions)
         mfcc_matrix = AcousticFeatureExtractor.extract_mfcc(frames, sr=sr)
 
-        # 7. Deep Neural Speaker Embedding (256 dimensions)
+        # 7. Deep Neural Speaker Embedding (192-D ECAPA-TDNN)
         embed_input = voiced_signal if len(voiced_signal) > int(sr * 0.1) else raw_signal
         embedding = SpeakerEmbeddingEngine.extract_embedding(embed_input, sr=sr)
 
@@ -120,7 +120,22 @@ class VoiceBiometricVerifier:
 
         # Step 2: Extract & Compare Embedding Vector
         test_embedding = pipeline_result['embedding']
-        similarity_score = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, enrolled_embedding)
+        enrolled_arr = np.array(enrolled_embedding, dtype=np.float32).flatten()
+        if len(enrolled_arr) != SpeakerEmbeddingEngine.EMBEDDING_DIM:
+            return {
+                'decision': 'REJECTED',
+                'is_authenticated': False,
+                'similarity_score': 0.0,
+                'confidence_pct': 0.0,
+                'threshold_used': custom_threshold or cls.RISK_THRESHOLDS.get(operation_tier, 0.75),
+                'snr_db': snr_info['snr_db'],
+                'liveness_score': 0.0,
+                'attack_type': 'NONE',
+                'rejection_reason': "Voiceprint was enrolled with a legacy model version. Please re-enroll your voice in Voice Vault.",
+                'latency_ms': round((time.perf_counter() - t_start) * 1000.0, 2),
+            }
+
+        similarity_score = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, enrolled_arr)
         
         # Step 3: Determine Threshold & Calibrate Match Confidence
         threshold = custom_threshold if custom_threshold is not None else cls.RISK_THRESHOLDS.get(operation_tier, 0.75)

@@ -89,14 +89,14 @@ class VoiceBiometricSignalProcessingTests(TestCase):
 
 
 class SpeakerEmbeddingAndVerificationTests(TestCase):
-    """Tests for 256-D Deep Neural Speaker Embeddings and Verification Decisions."""
+    """Tests for 192-D ECAPA-TDNN Deep Neural Speaker Embeddings and Verification Decisions."""
 
     def test_embedding_generation_and_normalization(self):
         wav_bytes = generate_synthetic_wav_bytes(duration_sec=1.0, freq_hz=140.0)
         signal, sr = AudioPreprocessor.load_and_resample(wav_bytes)
         
         emb = SpeakerEmbeddingEngine.extract_embedding(signal, sr=sr)
-        self.assertEqual(emb.shape, (256,))
+        self.assertEqual(emb.shape, (192,))
         
         # Verify L2 norm is approximately 1.0
         norm = np.linalg.norm(emb)
@@ -104,11 +104,11 @@ class SpeakerEmbeddingAndVerificationTests(TestCase):
 
     def test_cosine_similarity_and_confidence_mapping(self):
         rng = np.random.RandomState(42)
-        emb1 = rng.randn(256).astype(np.float32)
+        emb1 = rng.randn(192).astype(np.float32)
         emb1 /= np.linalg.norm(emb1)
         
         # Slight perturbation of emb1 (Genuine match)
-        emb2 = emb1 + 0.02 * rng.randn(256).astype(np.float32)
+        emb2 = emb1 + 0.02 * rng.randn(192).astype(np.float32)
         emb2 /= np.linalg.norm(emb2)
         
         sim = SpeakerEmbeddingEngine.compute_cosine_similarity(emb1, emb2)
@@ -117,16 +117,22 @@ class SpeakerEmbeddingAndVerificationTests(TestCase):
         conf = SpeakerEmbeddingEngine.calibrate_posterior_confidence(sim, threshold=0.72)
         self.assertGreater(conf, 75.0)
 
+        # Unrelated random speaker must be rejected (< 0.72)
+        impostor_emb = rng.randn(192).astype(np.float32)
+        impostor_emb /= np.linalg.norm(impostor_emb)
+        imp_sim = SpeakerEmbeddingEngine.compute_cosine_similarity(emb1, impostor_emb)
+        self.assertLess(imp_sim, 0.72)
+
     def test_multi_pass_sample_fusion(self):
         rng = np.random.RandomState(42)
         samples = []
         for _ in range(3):
-            s = rng.randn(256).astype(np.float32)
+            s = rng.randn(192).astype(np.float32)
             s /= np.linalg.norm(s)
             samples.append(s.tolist())
         
         master_emb, variance, sha_hash = SpeakerEmbeddingEngine.fuse_enrollment_samples(samples)
-        self.assertEqual(master_emb.shape, (256,))
+        self.assertEqual(master_emb.shape, (192,))
         self.assertGreater(len(sha_hash), 32)
         self.assertGreaterEqual(variance, 0.0)
 
@@ -195,7 +201,7 @@ class BankingViewsAndVoiceAPITests(TestCase):
         )
         
         rng = np.random.RandomState(42)
-        base_emb = rng.randn(256).astype(np.float32)
+        base_emb = rng.randn(192).astype(np.float32)
         base_emb /= np.linalg.norm(base_emb)
         
         self.profile = VoiceprintProfile.objects.create(
@@ -215,7 +221,7 @@ class BankingViewsAndVoiceAPITests(TestCase):
         self.client.login(username='alexander@apexbank.com', password='Password123!')
         res = self.client.get(reverse('app:banking_dashboard'))
         self.assertEqual(res.status_code, 200)
-        self.assertContains(res, "Voice Profile")
+        self.assertContains(res, "Active Voiceprint")
 
     def test_voice_challenge_api(self):
         res = self.client.get(reverse('app:api_voice_challenge'))
@@ -238,6 +244,42 @@ class BankingViewsAndVoiceAPITests(TestCase):
         data = res.json()
         self.assertIn('status', data)
         self.assertIn('decision', data)
+
+    def test_cross_account_voice_isolation(self):
+        """Ensures User B's voice cannot authenticate into User A's account while User A's voice succeeds."""
+        # Enroll User A with a 125Hz voice
+        wav_a = generate_synthetic_wav_bytes(duration_sec=1.5, freq_hz=125.0)
+        sig_a, sr = AudioPreprocessor.load_and_resample(wav_a)
+        emb_a = SpeakerEmbeddingEngine.extract_embedding(sig_a, sr=sr)
+        self.profile.embedding_vector = emb_a.tolist()
+        self.profile.save()
+
+        # 1. User B speaks at 220Hz and claims to be User A -> MUST BE REJECTED (401)
+        wav_b = generate_synthetic_wav_bytes(duration_sec=1.5, freq_hz=220.0)
+        b64_b = 'data:audio/wav;base64,' + base64.b64encode(wav_b).decode('ascii')
+        res_b = self.client.post(reverse('app:api_voice_login'), {
+            'username_or_email': 'alexander@apexbank.com',
+            'audio_data': b64_b,
+            'challenge_phrase': 'My voice is my secure key for voice biometric',
+            'spoken_transcript': 'My voice is my secure key for voice biometric',
+        })
+        self.assertEqual(res_b.status_code, 401)
+        data_b = res_b.json()
+        self.assertFalse(data_b['authenticated'])
+        self.assertEqual(data_b['decision'], 'REJECTED')
+
+        # 2. User A speaks at 125Hz and claims to be User A -> MUST BE ACCEPTED (200)
+        b64_a = 'data:audio/wav;base64,' + base64.b64encode(wav_a).decode('ascii')
+        res_a = self.client.post(reverse('app:api_voice_login'), {
+            'username_or_email': 'alexander@apexbank.com',
+            'audio_data': b64_a,
+            'challenge_phrase': 'My voice is my secure key for voice biometric',
+            'spoken_transcript': 'My voice is my secure key for voice biometric',
+        })
+        self.assertEqual(res_a.status_code, 200)
+        data_a = res_a.json()
+        self.assertTrue(data_a['authenticated'])
+        self.assertEqual(data_a['decision'], 'ACCEPTED')
 
     def test_evaluation_dashboard_and_simulation_api(self):
         res = self.client.get(reverse('app:evaluation_dashboard'))
