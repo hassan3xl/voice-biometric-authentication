@@ -1,31 +1,463 @@
 import hashlib
 import json
 import logging
+import math
 from pathlib import Path
 import numpy as np
+import requests
 import torch
-
-# Ensure torchaudio loads cleanly on CPU-only environments even if PyPI wheel built with CUDA symbols is present
-try:
-    import torchaudio._extension.utils as _ta_utils
-
-    _orig_ta_load = _ta_utils._load_lib
-
-    def _safe_ta_load(lib: str) -> bool:
-        try:
-            return _orig_ta_load(lib)
-        except OSError:
-            return False
-
-    _ta_utils._load_lib = _safe_ta_load
-except Exception:
-    pass
-
-from speechbrain.lobes.features import Fbank
-from speechbrain.lobes.models.ECAPA_TDNN import ECAPA_TDNN
-from speechbrain.processing.features import InputNormalization
+import torch.nn as nn
+import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
+
+
+def _length_to_mask(
+    length: torch.Tensor,
+    max_len: int | None = None,
+    dtype: torch.dtype | None = None,
+    device: torch.device | None = None,
+) -> torch.Tensor:
+    """Creates a binary mask for each sequence of length `length`."""
+    if max_len is None:
+        max_len = int(length.max().item())
+    if device is None:
+        device = length.device
+    if dtype is None:
+        dtype = length.dtype
+    mask = torch.arange(max_len, device=device, dtype=length.dtype).expand(
+        len(length), max_len
+    ) < length.unsqueeze(1)
+    return torch.as_tensor(mask, dtype=dtype, device=device)
+
+
+class _Conv1d(nn.Module):
+    """Pure-PyTorch 1D convolution matching SpeechBrain ECAPA-TDNN state_dict and reflection padding."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int = 1,
+        groups: int = 1,
+        stride: int = 1,
+        bias: bool = True,
+    ):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+        self.stride = stride
+        self.conv = nn.Conv1d(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride=stride,
+            dilation=dilation,
+            padding=0,
+            groups=groups,
+            bias=bias,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        pad = (self.dilation * (self.kernel_size - 1)) // 2
+        if pad > 0:
+            x = F.pad(x, (pad, pad), mode="reflect")
+        return self.conv(x)
+
+
+class _BatchNorm1d(nn.Module):
+    """Pure-PyTorch 1D BatchNorm wrapper matching SpeechBrain ECAPA-TDNN state_dict."""
+
+    def __init__(self, input_size: int, eps: float = 1e-5, momentum: float = 0.1):
+        super().__init__()
+        self.norm = nn.BatchNorm1d(input_size, eps=eps, momentum=momentum)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.norm(x)
+
+
+class TDNNBlock(nn.Module):
+    """Time-Delay Neural Network (TDNN) block with dilated reflection-padded Conv1d, ReLU, and BatchNorm1d."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int,
+        activation: type[nn.Module] = nn.ReLU,
+        groups: int = 1,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        self.conv = _Conv1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
+            groups=groups,
+        )
+        self.activation = activation()
+        self.norm = _BatchNorm1d(input_size=out_channels)
+        self.dropout = nn.Dropout1d(p=dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.dropout(self.norm(self.activation(self.conv(x))))
+
+
+class Res2NetBlock(nn.Module):
+    """Multi-scale Res2Net block with hierarchical dilated TDNN sub-branches."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        scale: int = 8,
+        kernel_size: int = 3,
+        dilation: int = 1,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        in_channel = in_channels // scale
+        hidden_channel = out_channels // scale
+        self.blocks = nn.ModuleList(
+            [
+                TDNNBlock(
+                    in_channel,
+                    hidden_channel,
+                    kernel_size=kernel_size,
+                    dilation=dilation,
+                    dropout=dropout,
+                )
+                for _ in range(scale - 1)
+            ]
+        )
+        self.scale = scale
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = []
+        y_i = None
+        for i, x_i in enumerate(torch.chunk(x, self.scale, dim=1)):
+            if i == 0:
+                y_i = x_i
+            elif i == 1:
+                y_i = self.blocks[i - 1](x_i)
+            else:
+                y_i = self.blocks[i - 1](x_i + y_i)
+            y.append(y_i)
+        return torch.cat(y, dim=1)
+
+
+class SEBlock(nn.Module):
+    """Squeeze-and-Excitation channel attention block."""
+
+    def __init__(self, in_channels: int, se_channels: int, out_channels: int):
+        super().__init__()
+        self.conv1 = _Conv1d(in_channels=in_channels, out_channels=se_channels, kernel_size=1)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = _Conv1d(in_channels=se_channels, out_channels=out_channels, kernel_size=1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        L = x.shape[-1]
+        if lengths is not None:
+            mask = _length_to_mask(lengths * L, max_len=L, device=x.device).unsqueeze(1)
+            total = mask.sum(dim=2, keepdim=True)
+            s = (x * mask).sum(dim=2, keepdim=True) / total
+        else:
+            s = x.mean(dim=2, keepdim=True)
+        s = self.relu(self.conv1(s))
+        s = self.sigmoid(self.conv2(s))
+        return s * x
+
+
+class AttentiveStatisticsPooling(nn.Module):
+    """Channel- and context-dependent Attentive Statistics Pooling (ASP)."""
+
+    def __init__(self, channels: int, attention_channels: int = 128, global_context: bool = True):
+        super().__init__()
+        self.eps = 1e-12
+        self.global_context = global_context
+        in_ch = channels * 3 if global_context else channels
+        self.tdnn = TDNNBlock(in_ch, attention_channels, 1, 1)
+        self.tanh = nn.Tanh()
+        self.conv = _Conv1d(in_channels=attention_channels, out_channels=channels, kernel_size=1)
+
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        L = x.shape[-1]
+
+        def _compute_statistics(t: torch.Tensor, m: torch.Tensor, dim: int = 2) -> tuple[torch.Tensor, torch.Tensor]:
+            mean = (m * t).sum(dim)
+            std = torch.sqrt((m * (t - mean.unsqueeze(dim)).pow(2)).sum(dim).clamp(self.eps))
+            return mean, std
+
+        if lengths is None:
+            lengths = torch.ones(x.shape[0], device=x.device)
+
+        mask = _length_to_mask(lengths * L, max_len=L, device=x.device).unsqueeze(1)
+
+        if self.global_context:
+            total = mask.sum(dim=2, keepdim=True).float()
+            mean, std = _compute_statistics(x, mask / total)
+            mean = mean.unsqueeze(2).repeat(1, 1, L)
+            std = std.unsqueeze(2).repeat(1, 1, L)
+            attn = torch.cat([x, mean, std], dim=1)
+        else:
+            attn = x
+
+        attn = self.conv(self.tanh(self.tdnn(attn)))
+        attn = attn.masked_fill(mask == 0, float("-inf"))
+        attn = F.softmax(attn, dim=2)
+        mean, std = _compute_statistics(x, attn)
+        return torch.cat((mean, std), dim=1).unsqueeze(2)
+
+
+class SERes2NetBlock(nn.Module):
+    """Core ECAPA-TDNN building block: TDNN -> Res2Net -> TDNN -> SEBlock with residual connection."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        res2net_scale: int = 8,
+        se_channels: int = 128,
+        kernel_size: int = 1,
+        dilation: int = 1,
+        activation: type[nn.Module] = nn.ReLU,
+        groups: int = 1,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        self.out_channels = out_channels
+        self.tdnn1 = TDNNBlock(
+            in_channels,
+            out_channels,
+            kernel_size=1,
+            dilation=1,
+            activation=activation,
+            groups=groups,
+            dropout=dropout,
+        )
+        self.res2net_block = Res2NetBlock(
+            out_channels, out_channels, res2net_scale, kernel_size, dilation
+        )
+        self.tdnn2 = TDNNBlock(
+            out_channels,
+            out_channels,
+            kernel_size=1,
+            dilation=1,
+            activation=activation,
+            groups=groups,
+            dropout=dropout,
+        )
+        self.se_block = SEBlock(out_channels, se_channels, out_channels)
+        self.shortcut = (
+            _Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=1)
+            if in_channels != out_channels
+            else None
+        )
+
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        residual = self.shortcut(x) if self.shortcut is not None else x
+        x = self.tdnn1(x)
+        x = self.res2net_block(x)
+        x = self.tdnn2(x)
+        x = self.se_block(x, lengths)
+        return x + residual
+
+
+class ECAPA_TDNN(nn.Module):
+    """Pure-PyTorch implementation of SpeechBrain's ECAPA-TDNN speaker embedding architecture.
+    100% state_dict compatible with `speechbrain/spkrec-ecapa-voxceleb` (`embedding_model.ckpt`)
+    without requiring `torchaudio` C++ extensions.
+    """
+
+    def __init__(
+        self,
+        input_size: int = 80,
+        lin_neurons: int = 192,
+        activation: type[nn.Module] = nn.ReLU,
+        channels: list[int] | None = None,
+        kernel_sizes: list[int] | None = None,
+        dilations: list[int] | None = None,
+        attention_channels: int = 128,
+        res2net_scale: int = 8,
+        se_channels: int = 128,
+        global_context: bool = True,
+        groups: list[int] | None = None,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        channels = channels or [1024, 1024, 1024, 1024, 3072]
+        kernel_sizes = kernel_sizes or [5, 3, 3, 3, 1]
+        dilations = dilations or [1, 2, 3, 4, 1]
+        groups = groups or [1, 1, 1, 1, 1]
+
+        self.channels = channels
+        self.blocks = nn.ModuleList()
+
+        self.blocks.append(
+            TDNNBlock(
+                input_size,
+                channels[0],
+                kernel_sizes[0],
+                dilations[0],
+                activation,
+                groups[0],
+                dropout,
+            )
+        )
+
+        for i in range(1, len(channels) - 1):
+            self.blocks.append(
+                SERes2NetBlock(
+                    channels[i - 1],
+                    channels[i],
+                    res2net_scale=res2net_scale,
+                    se_channels=se_channels,
+                    kernel_size=kernel_sizes[i],
+                    dilation=dilations[i],
+                    activation=activation,
+                    groups=groups[i],
+                    dropout=dropout,
+                )
+            )
+
+        self.mfa = TDNNBlock(
+            channels[-2] * (len(channels) - 2),
+            channels[-1],
+            kernel_sizes[-1],
+            dilations[-1],
+            activation,
+            groups=groups[-1],
+            dropout=dropout,
+        )
+
+        self.asp = AttentiveStatisticsPooling(
+            channels[-1],
+            attention_channels=attention_channels,
+            global_context=global_context,
+        )
+        self.asp_bn = _BatchNorm1d(input_size=channels[-1] * 2)
+        self.fc = _Conv1d(
+            in_channels=channels[-1] * 2,
+            out_channels=lin_neurons,
+            kernel_size=1,
+        )
+
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        x = x.transpose(1, 2)
+        xl = []
+        for layer in self.blocks:
+            if isinstance(layer, TDNNBlock):
+                x = layer(x)
+            else:
+                x = layer(x, lengths=lengths)
+            xl.append(x)
+
+        x = torch.cat(xl[1:], dim=1)
+        x = self.mfa(x)
+        x = self.asp(x, lengths=lengths)
+        x = self.asp_bn(x)
+        x = self.fc(x)
+        return x.transpose(1, 2)
+
+
+class Fbank(nn.Module):
+    """Pure-PyTorch 80-bin log-Mel filterbank extractor matching SpeechBrain's Fbank pipeline."""
+
+    def __init__(
+        self,
+        sample_rate: int = 16000,
+        f_min: float = 0.0,
+        f_max: float | None = None,
+        n_fft: int = 400,
+        n_mels: int = 80,
+        win_length: float = 25.0,
+        hop_length: float = 10.0,
+    ):
+        super().__init__()
+        self.sample_rate = sample_rate
+        self.f_min = f_min
+        self.f_max = float(f_max if f_max is not None else sample_rate // 2)
+        self.n_fft = n_fft
+        self.n_mels = n_mels
+        self.win_length = int(round((sample_rate / 1000.0) * win_length))
+        self.hop_length = int(round((sample_rate / 1000.0) * hop_length))
+        self.register_buffer("window", torch.hamming_window(self.win_length), persistent=False)
+
+        n_stft = self.n_fft // 2 + 1
+        mel = torch.linspace(
+            self._to_mel(self.f_min), self._to_mel(self.f_max), self.n_mels + 2
+        )
+        hz = self._to_hz(mel)
+        band = hz[1:] - hz[:-1]
+        f_central = hz[1:-1]
+        all_freqs = torch.linspace(0, self.sample_rate // 2, n_stft)
+        all_freqs_mat = all_freqs.repeat(f_central.shape[0], 1)
+        f_central_mat = f_central.repeat(all_freqs_mat.shape[1], 1).transpose(0, 1)
+        band_mat = band[:-1].repeat(all_freqs_mat.shape[1], 1).transpose(0, 1)
+
+        slope = (all_freqs_mat - f_central_mat) / band_mat
+        fbank_matrix = torch.max(
+            torch.zeros(1), torch.min(slope + 1.0, -slope + 1.0)
+        ).transpose(0, 1)
+        self.register_buffer("fbank_matrix", fbank_matrix, persistent=False)
+
+    @staticmethod
+    def _to_mel(hz: float) -> float:
+        return 2595.0 * math.log10(1.0 + hz / 700.0)
+
+    @staticmethod
+    def _to_hz(mel: torch.Tensor) -> torch.Tensor:
+        return 700.0 * (10.0 ** (mel / 2595.0) - 1.0)
+
+    def forward(self, wav: torch.Tensor) -> torch.Tensor:
+        stft = torch.stft(
+            wav,
+            self.n_fft,
+            self.hop_length,
+            self.win_length,
+            self.window.to(wav.device),
+            center=True,
+            pad_mode="constant",
+            normalized=False,
+            onesided=True,
+            return_complex=True,
+        )
+        mag = torch.view_as_real(stft).transpose(2, 1).pow(2).sum(-1)
+        fbanks = torch.matmul(mag, self.fbank_matrix.to(mag.device))
+        x_db = 10.0 * torch.log10(torch.clamp(fbanks, min=1e-10))
+        new_x_db_max = x_db.amax(dim=(-2, -1)) - 80.0
+        return torch.max(x_db, new_x_db_max.view(x_db.shape[0], 1, 1))
+
+
+class InputNormalization(nn.Module):
+    """Pure-PyTorch sentence-level cepstral mean normalization matching SpeechBrain's InputNormalization."""
+
+    def __init__(self, norm_type: str = "sentence", std_norm: bool = False, epsilon: float = 1e-10):
+        super().__init__()
+        self.norm_type = norm_type
+        self.std_norm = std_norm
+        self.epsilon = epsilon
+
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor | None = None) -> torch.Tensor:
+        if lengths is None:
+            mean = x.mean(dim=1, keepdim=True)
+            if not self.std_norm:
+                return x - mean
+            std = x.std(dim=1, keepdim=True).clamp(min=self.epsilon)
+            return (x - mean) / std
+
+        T = x.shape[1]
+        mask = _length_to_mask(lengths * T, max_len=T, device=x.device).unsqueeze(-1)
+        n = mask.sum(dim=1, keepdim=True).clamp(min=1.0)
+        mean = (x * mask).sum(dim=1, keepdim=True) / n
+        if not self.std_norm:
+            return x - mean
+        var = ((x - mean) * mask).square().sum(dim=1, keepdim=True) / n
+        return (x - mean) / var.sqrt().clamp(min=self.epsilon)
 
 
 class SpeakerEmbeddingEngine:
@@ -43,6 +475,7 @@ class SpeakerEmbeddingEngine:
     CALIBRATION_MIDPOINT = 0.72  # Standard match threshold
     SAMPLE_RATE = 16000
     MEL_CHANNELS = 80
+    HF_CHECKPOINT_URL = "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/resolve/main/embedding_model.ckpt"
 
     _compute_features: Fbank | None = None
     _mean_var_norm: InputNormalization | None = None
@@ -61,14 +494,11 @@ class SpeakerEmbeddingEngine:
 
         if not ckpt_path.exists():
             try:
-                from speechbrain.inference.speaker import EncoderClassifier
-
                 model_dir.mkdir(parents=True, exist_ok=True)
-                EncoderClassifier.from_hparams(
-                    source="speechbrain/spkrec-ecapa-voxceleb",
-                    savedir=str(model_dir),
-                    run_opts={"device": "cpu"},
-                )
+                resp = requests.get(cls.HF_CHECKPOINT_URL, timeout=60)
+                resp.raise_for_status()
+                ckpt_path.write_bytes(resp.content)
+                logger.info("Downloaded ECAPA-TDNN checkpoint from HuggingFace to %s", ckpt_path)
             except Exception as e:
                 logger.warning("Could not auto-download ECAPA-TDNN from HuggingFace: %s", e)
 
@@ -85,8 +515,8 @@ class SpeakerEmbeddingEngine:
 
         if ckpt_path.exists():
             try:
-                state_dict = torch.load(str(ckpt_path), map_location="cpu")
-                embedding_model.load_state_dict(state_dict)
+                state_dict = torch.load(str(ckpt_path), map_location="cpu", weights_only=True)
+                embedding_model.load_state_dict(state_dict, strict=True)
                 logger.info("Loaded pretrained SpeechBrain ECAPA-TDNN (192-D) from %s", ckpt_path)
             except Exception as e:
                 logger.error("Failed to load ECAPA-TDNN weights from %s: %s", ckpt_path, e)
