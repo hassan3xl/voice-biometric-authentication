@@ -47,9 +47,8 @@ class VoiceBiometricVerifier:
         # 6. MFCC Feature Extraction (60 dimensions)
         mfcc_matrix = AcousticFeatureExtractor.extract_mfcc(frames, sr=sr)
 
-        # 7. Deep Neural Speaker Embedding (192-D ECAPA-TDNN)
-        embed_input = voiced_signal if len(voiced_signal) > int(sr * 0.1) else raw_signal
-        embedding = SpeakerEmbeddingEngine.extract_embedding(embed_input, sr=sr)
+        # 7. Deep Neural Speaker Embedding (192-D SpeechBrain ECAPA-TDNN)
+        embedding = SpeakerEmbeddingEngine.extract_embedding(raw_signal, sr=sr)
 
         # 8. Pitch & Harmonic Tracking (F0, Jitter, Shimmer)
         pitch_info = AcousticFeatureExtractor.estimate_pitch_f0(voiced_signal, sr=sr)
@@ -81,7 +80,8 @@ class VoiceBiometricVerifier:
         operation_tier: str = 'STEP_UP_TRANSACTION',
         expected_passphrase: str = "",
         spoken_transcript: str = "",
-        custom_threshold: float | None = None
+        custom_threshold: float | None = None,
+        baseline_f0_hz: float | None = None,
     ) -> dict:
         """Verifies an incoming voice recording against an enrolled master voiceprint.
         
@@ -136,6 +136,11 @@ class VoiceBiometricVerifier:
             }
 
         similarity_score = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, enrolled_arr)
+        spoken_f0 = pipeline_result['pitch_info'].get('mean_f0_hz', 0.0)
+        if baseline_f0_hz and baseline_f0_hz > 50.0 and spoken_f0 > 50.0:
+            rel_f0_diff = abs(spoken_f0 - baseline_f0_hz) / baseline_f0_hz
+            if rel_f0_diff > 0.35:
+                similarity_score -= min(0.25, (rel_f0_diff - 0.35) * 0.6)
         
         # Step 3: Determine Threshold & Calibrate Match Confidence
         threshold = custom_threshold if custom_threshold is not None else cls.RISK_THRESHOLDS.get(operation_tier, 0.75)

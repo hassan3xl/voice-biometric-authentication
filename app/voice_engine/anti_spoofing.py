@@ -118,7 +118,7 @@ class AntiSpoofingEngine:
                 matches = sum(1 for word in expected_clean if word in spoken_clean)
                 word_match_ratio = matches / len(expected_clean)
                 if word_match_ratio < 0.4:
-                    challenge_score = 0.4
+                    challenge_score = 0.2
                     flags.append('CHALLENGE_PHRASE_MISMATCH')
                 else:
                     challenge_score = min(1.0, 0.4 + 0.6 * word_match_ratio)

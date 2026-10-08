@@ -281,14 +281,25 @@ def voice_login_api(request):
             }, status=401)
 
         best_similarity = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, target_profile.embedding_vector)
+        spoken_f0 = pipeline['pitch_info'].get('mean_f0_hz', 0.0)
+        if target_profile.baseline_f0_hz and target_profile.baseline_f0_hz > 50.0 and spoken_f0 > 50.0:
+            rel_f0_diff = abs(spoken_f0 - target_profile.baseline_f0_hz) / target_profile.baseline_f0_hz
+            if rel_f0_diff > 0.35:
+                best_similarity -= min(0.25, (rel_f0_diff - 0.35) * 0.6)
         best_profile = target_profile
     else:
-        # Mode 2: 1:N Identification with Strict Ambiguity Margin Gate
+        # Mode 2: 1:N Identification with Strict Threshold & Ambiguity Margin Gate
+        threshold = max(threshold, 0.78)
+        spoken_f0 = pipeline['pitch_info'].get('mean_f0_hz', 0.0)
         enrolled_profiles = VoiceprintProfile.objects.filter(status='ACTIVE').select_related('user')
         for profile in enrolled_profiles:
             if not profile.embedding_vector or len(profile.embedding_vector) != SpeakerEmbeddingEngine.EMBEDDING_DIM:
                 continue
             similarity = SpeakerEmbeddingEngine.compute_cosine_similarity(test_embedding, profile.embedding_vector)
+            if profile.baseline_f0_hz and profile.baseline_f0_hz > 50.0 and spoken_f0 > 50.0:
+                rel_f0_diff = abs(spoken_f0 - profile.baseline_f0_hz) / profile.baseline_f0_hz
+                if rel_f0_diff > 0.35:
+                    similarity -= min(0.25, (rel_f0_diff - 0.35) * 0.6)
             if similarity > best_similarity:
                 second_best_similarity = best_similarity
                 best_similarity = similarity

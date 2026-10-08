@@ -4,13 +4,15 @@ import math
 import wave
 import numpy as np
 import soundfile as sf
+import torch
+import torchaudio
 from scipy import signal
 
 
 class AudioPreprocessor:
     """Preprocesses acoustic signals for voice biometric authentication.
     
-    Handles audio decoding, 16kHz resampling, mono conversion,
+    Handles audio decoding, 16kHz resampling via torchaudio, mono conversion,
     pre-emphasis filtering, Voice Activity Detection (VAD),
     and Signal-to-Noise Ratio (SNR) estimation.
     """
@@ -24,8 +26,7 @@ class AudioPreprocessor:
 
     @classmethod
     def load_audio_from_bytes(cls, audio_bytes: bytes) -> tuple[np.ndarray, int]:
-        """Loads audio from raw bytes (WAV, RIFF, or container) into float32 array [-1.0, 1.0] and sample rate."""
-        # Check if base64 encoded
+        """Loads audio from raw bytes (WAV, RIFF, or container) into float32 array [-1.0, 1.0] and 16kHz sample rate."""
         if audio_bytes.startswith(b'data:audio') or b';base64,' in audio_bytes[:50]:
             try:
                 base64_data = audio_bytes.split(b',', 1)[1]
@@ -34,53 +35,61 @@ class AudioPreprocessor:
                 pass
         elif not audio_bytes.startswith(b'RIFF') and not audio_bytes.startswith(b'OggS'):
             try:
-                # Attempt base64 decode if plain base64 string
                 audio_bytes = base64.b64decode(audio_bytes)
             except Exception:
                 pass
 
+        data = None
+        sr = cls.TARGET_SAMPLE_RATE
+
+        # 1. Try torchaudio first
         try:
-            # Use soundfile first
-            data, sr = sf.read(io.BytesIO(audio_bytes), dtype='float32')
+            waveform, sr = torchaudio.load(io.BytesIO(audio_bytes))
+            if waveform.shape[0] > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+            if sr != cls.TARGET_SAMPLE_RATE:
+                waveform = torchaudio.functional.resample(waveform, orig_freq=sr, new_freq=cls.TARGET_SAMPLE_RATE)
+                sr = cls.TARGET_SAMPLE_RATE
+            data = waveform.squeeze(0).cpu().numpy().astype(np.float32)
         except Exception:
-            # Fallback to standard library wave
+            # 2. Fallback to soundfile / standard library wave
             try:
-                with wave.open(io.BytesIO(audio_bytes), 'rb') as wf:
-                    sr = wf.getframerate()
-                    n_channels = wf.getnchannels()
-                    sampwidth = wf.getsampwidth()
-                    n_frames = wf.getnframes()
-                    raw_frames = wf.readframes(n_frames)
-                    
-                    if sampwidth == 2:  # 16-bit PCM
-                        data = np.frombuffer(raw_frames, dtype=np.int16).astype(np.float32) / 32768.0
-                    elif sampwidth == 1:  # 8-bit unsigned
-                        data = (np.frombuffer(raw_frames, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
-                    elif sampwidth == 4:  # 32-bit float or int
-                        data = np.frombuffer(raw_frames, dtype=np.float32)
-                    else:
-                        data = np.frombuffer(raw_frames, dtype=np.int16).astype(np.float32) / 32768.0
+                data, sr = sf.read(io.BytesIO(audio_bytes), dtype='float32')
+            except Exception:
+                try:
+                    with wave.open(io.BytesIO(audio_bytes), 'rb') as wf:
+                        sr = wf.getframerate()
+                        n_channels = wf.getnchannels()
+                        sampwidth = wf.getsampwidth()
+                        n_frames = wf.getnframes()
+                        raw_frames = wf.readframes(n_frames)
 
-                    if n_channels > 1:
-                        data = data.reshape(-1, n_channels)
-            except Exception as e:
-                raise ValueError(f"Unable to parse audio stream: {e}")
+                        if sampwidth == 2:
+                            data = np.frombuffer(raw_frames, dtype=np.int16).astype(np.float32) / 32768.0
+                        elif sampwidth == 1:
+                            data = (np.frombuffer(raw_frames, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
+                        elif sampwidth == 4:
+                            data = np.frombuffer(raw_frames, dtype=np.float32)
+                        else:
+                            data = np.frombuffer(raw_frames, dtype=np.int16).astype(np.float32) / 32768.0
 
-        # Convert to mono if multi-channel
-        if len(data.shape) > 1:
-            data = np.mean(data, axis=1)
+                        if n_channels > 1:
+                            data = data.reshape(-1, n_channels)
+                except Exception as e:
+                    raise ValueError(f"Unable to parse audio stream: {e}")
 
-        # Normalize amplitude to [-1, 1]
-        max_val = np.max(np.abs(data))
+            if len(data.shape) > 1:
+                data = np.mean(data, axis=1)
+
+            if sr != cls.TARGET_SAMPLE_RATE and len(data) > 0:
+                wav_t = torch.from_numpy(data.astype(np.float32)).unsqueeze(0)
+                wav_t = torchaudio.functional.resample(wav_t, orig_freq=sr, new_freq=cls.TARGET_SAMPLE_RATE)
+                data = wav_t.squeeze(0).numpy().astype(np.float32)
+                sr = cls.TARGET_SAMPLE_RATE
+
+        max_val = np.max(np.abs(data)) if len(data) > 0 else 0.0
         if max_val > 0:
             data = data / max_val
-
-        # Resample to TARGET_SAMPLE_RATE if different
-        if sr != cls.TARGET_SAMPLE_RATE:
-            num_target_samples = int(len(data) * cls.TARGET_SAMPLE_RATE / sr)
-            if num_target_samples > 0:
-                data = signal.resample(data, num_target_samples)
-                sr = cls.TARGET_SAMPLE_RATE
 
         return data.astype(np.float32), sr
 

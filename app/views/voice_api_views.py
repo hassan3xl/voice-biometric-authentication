@@ -312,6 +312,7 @@ def voice_test_verify_api(request):
         operation_tier='LOGIN',
         expected_passphrase=challenge_phrase,
         spoken_transcript=spoken_transcript,
+        baseline_f0_hz=voice_profile.baseline_f0_hz,
     )
 
     client_ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '127.0.0.1')).split(',')[0].strip()

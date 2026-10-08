@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'app.apps.AppConfig',
-    'notifications',
 ]
 
 AUTH_USER_MODEL = 'app.User'
