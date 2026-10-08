@@ -1,6 +1,6 @@
 from .base import *
 import os
-DEBUG = False
+DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = ['*']
 import dj_database_url
 

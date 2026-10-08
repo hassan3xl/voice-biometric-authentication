@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -6,7 +7,7 @@
     <title>{% block title %}Home{% endblock %} | VoiceAuth</title>
     <meta name="description" content="Voice Biometric Authentication System — Enroll, verify, and manage your voiceprint.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
     {% block extra_css %}{% endblock %}
   </head>
   <body>
@@ -36,6 +37,6 @@
 
     {% block extra_scripts %}{% endblock %}
 
-    <script src="/static/js/voice_recorder.js"></script>
+    <script src="{% static 'js/voice_recorder.js' %}"></script>
   </body>
 </html>

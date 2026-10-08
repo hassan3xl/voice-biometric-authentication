@@ -88,6 +88,8 @@ STORAGES = {
 }
 
 WHITENOISE_MANIFEST_STRICT = False
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
 
 # Backward compatibility for django-cloudinary-storage collectstatic command in Django 5+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
